@@ -27,15 +27,18 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-    final kycVerified = doc.data()?['KYC_verified'] ?? false;
-    if (doc.exists && doc['name'] != null && doc['gender'] != null && kycVerified) {
+
+    if (doc.exists && doc['name'] != null && doc['gender'] != null ) {
       setState(() {
         _profileComplete = true;
         _loading = false;
       });
     } else {
       Navigator.of(context).pushReplacementNamed('/profile');
+
     }
+
+
   }
 
   void _onNavTap(int index) {

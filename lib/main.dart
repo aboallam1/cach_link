@@ -11,13 +11,16 @@ import 'screens/match_screen.dart';
 import 'screens/agreement_screen.dart';
 import 'screens/rating_screen.dart';
 import 'screens/signup_screen.dart';
+import 'screens/settings_screen.dart';   // ✅ Add
+import 'screens/history_screen.dart';    // ✅ Add
+import 'screens/notifications_screen.dart';    // ✅ Add
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -87,6 +90,9 @@ class MyApp extends StatelessWidget {
         '/match': (_) => const MatchScreen(),
         '/agreement': (_) => const AgreementScreen(),
         '/rating': (_) => const RatingScreen(),
+        '/settings': (_) => const SettingsScreen(),   // ✅ Add
+        '/history': (_) => const HistoryScreen(),     // ✅ Add
+        '/notifications': (_) => const NotificationsScreen(),     // ✅ Add
       },
     );
   }
