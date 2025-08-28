@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -30,48 +31,155 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return doc.exists ? doc.data() : null;
   }
 
+  double _distance(lat1, lon1, lat2, lon2) {
+    const p = 0.017453292519943295;
+    final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) *
+            (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a)); // Distance in km
+  }
+
   void _showTransactionDetails(Map<String, dynamic> data) async {
     final user = FirebaseAuth.instance.currentUser!;
-    final otherUID = data['fromUID'] == user.uid ? data['toUID'] : data['fromUID'];
+    final otherUID = data['exchangeRequestedBy'] != null && data['exchangeRequestedBy'] != user.uid
+        ? data['exchangeRequestedBy']
+        : null;
+
     Map<String, dynamic>? otherUser;
     if (otherUID != null) {
       otherUser = await _getOtherUserData(otherUID);
     }
 
+    final distance = (data['location'] != null && otherUser != null)
+        ? _distance(
+            data['location']['lat'],
+            data['location']['lng'],
+            data['location']['lat'],
+            data['location']['lng'])
+        : 0.0;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text("${data['type']} Details"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Amount: \$${(data['amount'] ?? 0.0).toStringAsFixed(2)}"),
-            Text("Status: ${data['status'] ?? 'pending'}"),
-            if (otherUser != null) ...[
-              const SizedBox(height: 8),
-              Text("Other User: ${otherUser['name'] ?? 'Unknown'}"),
-              Text("Phone: ${otherUser['phone'] ?? ''}"),
-              Text("Gender: ${otherUser['gender'] ?? ''}"),
-              if (data['feedback'] != null)
-                Text("Feedback: ${data['feedback']}"),
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Colors.white, Colors.blueGrey],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "${data['type']} Details",
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              const SizedBox(height: 15),
+              if (otherUser != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _infoRow("Name", otherUser['name']?.split(' ').first ?? 'Unknown'),
+                    _divider(),
+                    _infoRow("Gender", otherUser['gender'] ?? 'Unknown'),
+                    _divider(),
+                    _infoRow("Amount", "\$${data['amount']?.toStringAsFixed(2) ?? 0.0}"),
+                    _divider(),
+                    _infoRow("Distance", "~${distance.toStringAsFixed(2)} km"),
+                    _divider(),
+                  ],
+                ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (data['status'] == 'requested' && otherUID != null) ...[
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10))),
+                      onPressed: () async {
+                        await FirebaseFirestore.instance
+                            .collection('transactions')
+                            .doc(data['transactionId'])
+                            .update({'status': 'accepted'});
+                        if (!mounted) return;
+                        Navigator.of(context).pop();
+                        Navigator.of(context).pushNamed('/agreement', arguments: {
+                          'myTxId': data['transactionId'],
+                          'otherTxId': data['partnerTxId'],
+                        });
+                      },
+                      child: const Text("Accept", style: TextStyle(fontSize: 16)),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10))),
+                      onPressed: () async {
+                        await FirebaseFirestore.instance
+                            .collection('transactions')
+                            .doc(data['transactionId'])
+                            .update({'status': 'rejected'});
+                        if (!mounted) return;
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text("Reject", style: TextStyle(fontSize: 16)),
+                    ),
+                  ] else
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10))),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text("Close", style: TextStyle(fontSize: 16)),
+                    ),
+                ],
+              ),
             ],
-            if (data['location'] != null)
-              Text(
-                  "Location: (${data['location']['lat']}, ${data['location']['lng']})"),
-            if (data['createdAt'] != null)
-              Text(
-                  "Date: ${(data['createdAt'] as Timestamp).toDate()}"),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Close"),
-          )
+      ),
+    );
+  }
+
+  Widget _infoRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "$title:",
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 16, color: Colors.black54),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _divider() {
+    return const Divider(color: Colors.black26, thickness: 1, height: 10);
   }
 
   @override
@@ -105,7 +213,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
               final amount = data['amount'] ?? 0.0;
               final status = data['status'] ?? 'pending';
 
+              final isRequestedByOther = status == 'requested' &&
+                  data['exchangeRequestedBy'] != null &&
+                  data['exchangeRequestedBy'] != user.uid;
+
               return Card(
+                color: isRequestedByOther ? Colors.yellow[200] : null,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

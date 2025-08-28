@@ -25,19 +25,23 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _findMatches() async {
-    final user = FirebaseAuth.instance.currentUser!;
+    final currentUser = FirebaseAuth.instance.currentUser!;
     final txs = await FirebaseFirestore.instance
         .collection('transactions')
-        .where('userId', isEqualTo: user.uid)
+        .where('userId', isEqualTo: currentUser.uid)
         .orderBy('createdAt', descending: true)
         .limit(1)
         .get();
 
     if (txs.docs.isEmpty) return;
     _myTx = txs.docs.first;
-    final myType = _myTx!['type'];
-    _myAmount = _myTx!['amount'];
-    _myLoc = _myTx!['location'];
+    final myData = _myTx!.data() as Map<String, dynamic>?;
+
+    if (myData == null || !myData.containsKey('type') || !myData.containsKey('amount') || !myData.containsKey('location')) return;
+
+    final myType = myData['type'];
+    _myAmount = myData['amount'];
+    _myLoc = myData['location'];
     final oppType = myType == 'Deposit' ? 'Withdraw' : 'Deposit';
 
     final candidates = await FirebaseFirestore.instance
@@ -48,9 +52,20 @@ class _MatchScreenState extends State<MatchScreen> {
 
     List<DocumentSnapshot> matches = [];
     for (var doc in candidates.docs) {
-      final amt = doc['amount'];
+      final data = doc.data() as Map<String, dynamic>?;
+
+      // ✅ تحقق من الحقول
+      if (data == null ||
+          !data.containsKey('amount') ||
+          !data.containsKey('location') ||
+          !data.containsKey('userId')) continue;
+
+      // ✅ تجاهل معاملات نفس المستخدم
+      if (data['userId'] == currentUser.uid) continue;
+
+      final amt = data['amount'];
       if ((amt - _myAmount).abs() / _myAmount <= 0.1) {
-        final loc = doc['location'];
+        final loc = data['location'];
         final d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
         if (d < 50.0) {
           matches.add(doc);
@@ -59,17 +74,20 @@ class _MatchScreenState extends State<MatchScreen> {
     }
 
     matches.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
       if (_filterType == "distance") {
-        final da = _distance(_myLoc!['lat'], _myLoc!['lng'], a['location']['lat'], a['location']['lng']);
-        final db = _distance(_myLoc!['lat'], _myLoc!['lng'], b['location']['lat'], b['location']['lng']);
+        final da = _distance(_myLoc!['lat'], _myLoc!['lng'], aData['location']['lat'], aData['location']['lng']);
+        final db = _distance(_myLoc!['lat'], _myLoc!['lng'], bData['location']['lat'], bData['location']['lng']);
         return da.compareTo(db);
       } else {
-        final da = (a['amount'] - _myAmount).abs();
-        final db = (b['amount'] - _myAmount).abs();
+        final da = (aData['amount'] - _myAmount).abs();
+        final db = (bData['amount'] - _myAmount).abs();
         return da.compareTo(db);
       }
     });
 
+    if (!mounted) return;
     setState(() {
       _matches = matches;
       _loading = false;
@@ -81,7 +99,7 @@ class _MatchScreenState extends State<MatchScreen> {
     final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
         cos(lat1 * p) * cos(lat2 * p) *
             (1 - cos((lon2 - lon1) * p)) / 2;
-    return 12742 * asin(sqrt(a));
+    return 12742 * asin(sqrt(a)); // in km
   }
 
   Future<void> _sendExchangeRequest(DocumentSnapshot otherTx, String otherUserId) async {
@@ -114,6 +132,7 @@ class _MatchScreenState extends State<MatchScreen> {
 
   Future<void> _respondToRequest(DocumentSnapshot tx, bool accept) async {
     final txRef = FirebaseFirestore.instance.collection('transactions').doc(tx.id);
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
     if (accept) {
       await txRef.update({'status': 'accepted'});
@@ -172,21 +191,27 @@ class _MatchScreenState extends State<MatchScreen> {
               itemCount: _matches.length,
               itemBuilder: (ctx, i) {
                 final tx = _matches[i];
+                final txData = tx.data() as Map<String, dynamic>?;
+
+                if (txData == null || !txData.containsKey('userId')) {
+                  return const ListTile(title: Text('Invalid transaction data'));
+                }
+
                 return FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance.collection('users').doc(tx['userId']).get(),
+                  future: FirebaseFirestore.instance.collection('users').doc(txData['userId']).get(),
                   builder: (ctx, snap) {
                     if (!snap.hasData) return const ListTile(title: Text('Loading...'));
                     final user = snap.data!;
-                    final dist = _distance(_myLoc!['lat'], _myLoc!['lng'],
-                        tx['location']['lat'], tx['location']['lng']);
+                    final loc = txData['location'];
+                    final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
 
-                    // ✅ لو جالي Exchange request من الطرف التاني
-                    if (tx['status'] == 'requested' && tx['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
+                    // ⚠️ إذا هناك طلب exchange قادم من الطرف الآخر
+                    if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
                       return Card(
                         child: ListTile(
                           title: Text('${user['name']} (${user['gender']})'),
                           subtitle: Text(
-                            'Exchange Request received!\nAmount: ${tx['amount']} | Distance: ~${dist.toStringAsFixed(2)} km | Rating: ${user['rating']}',
+                            'Exchange Request received!\nAmount: ${txData['amount']} | Distance: ~${dist.toStringAsFixed(2)} km | Rating: ${user['rating']}',
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -205,12 +230,12 @@ class _MatchScreenState extends State<MatchScreen> {
                       );
                     }
 
-                    // ✅ الكروت العادية (لسه ممكن أعمل لهم Exchange request)
+                    // ⚡ الكروت العادية (ممكن عمل Exchange Request)
                     return Card(
                       child: ListTile(
                         title: Text('${user['name']} (${user['gender']})'),
                         subtitle: Text(
-                          'Amount: ${tx['amount']} | Distance: ~${dist.toStringAsFixed(2)} km | Rating: ${user['rating']}',
+                          'Amount: ${txData['amount']} | Distance: ~${dist.toStringAsFixed(2)} km | Rating: ${user['rating']}',
                         ),
                         trailing: ElevatedButton(
                           onPressed: () => _sendExchangeRequest(tx, user.id),
