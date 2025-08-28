@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "834461848683",
+    "project_id": "cash-link-d7395",
+    "storage_bucket": "cash-link-d7395.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:834461848683:android:4277882a3aa9cd99510d2e",
+        "android_client_info": {
+          "package_name": "com.example.cashlink"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTWKiIVd-WZ2CUjxwuDhBqs1hh9iNZkP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
