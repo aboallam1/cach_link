@@ -25,9 +25,59 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  Future<Map<String, dynamic>?> _getOtherUserData(String uid) async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    return doc.exists ? doc.data() : null;
+  }
+
+  void _showTransactionDetails(Map<String, dynamic> data) async {
+    final user = FirebaseAuth.instance.currentUser!;
+    final otherUID = data['fromUID'] == user.uid ? data['toUID'] : data['fromUID'];
+    Map<String, dynamic>? otherUser;
+    if (otherUID != null) {
+      otherUser = await _getOtherUserData(otherUID);
+    }
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("${data['type']} Details"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Amount: \$${(data['amount'] ?? 0.0).toStringAsFixed(2)}"),
+            Text("Status: ${data['status'] ?? 'pending'}"),
+            if (otherUser != null) ...[
+              const SizedBox(height: 8),
+              Text("Other User: ${otherUser['name'] ?? 'Unknown'}"),
+              Text("Phone: ${otherUser['phone'] ?? ''}"),
+              Text("Gender: ${otherUser['gender'] ?? ''}"),
+              if (data['feedback'] != null)
+                Text("Feedback: ${data['feedback']}"),
+            ],
+            if (data['location'] != null)
+              Text(
+                  "Location: (${data['location']['lat']}, ${data['location']['lng']})"),
+            if (data['createdAt'] != null)
+              Text(
+                  "Date: ${(data['createdAt'] as Timestamp).toDate()}"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Close"),
+          )
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser!;
+
     return Scaffold(
       appBar: AppBar(title: const Text("Transaction History")),
       body: StreamBuilder<QuerySnapshot>(
@@ -77,6 +127,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   subtitle: Text("Status: $status"),
                   trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showTransactionDetails(data),
                 ),
               );
             },

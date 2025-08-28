@@ -11,6 +11,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
+  String _countryCode = '+20'; // Default country code (Egypt)
   String _phone = '';
   String _password = '';
   bool _loading = false;
@@ -18,17 +19,21 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _verificationId;
   final TextEditingController _smsController = TextEditingController();
 
+  String get _fullPhoneNumber => '$_countryCode${_phone.trim()}';
+
+  // Start phone verification
   Future<void> _startPhoneLogin() async {
     setState(() {
       _loading = true;
       _error = null;
     });
+
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: _phone.trim(),
+        phoneNumber: _fullPhoneNumber,
         timeout: const Duration(seconds: 60),
         verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-retrieval or instant verification (rare on web)
+          // Rarely used: auto-retrieval
         },
         verificationFailed: (FirebaseAuthException e) {
           setState(() {
@@ -58,41 +63,58 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  // Verify OTP and login
   Future<void> _verifySmsCodeAndLogin() async {
     setState(() {
       _loading = true;
       _error = null;
     });
+
     try {
+      // Verify OTP with Firebase Auth
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: _smsController.text.trim(),
       );
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // Check Firestore for user and password
-      final userDoc = await FirebaseFirestore.instance
+      // Search user in Firestore by full phone number
+      final userQuery = await FirebaseFirestore.instance
           .collection('users')
-          .doc(userCredential.user!.uid)
+          .where('phone', isEqualTo: _fullPhoneNumber)
+          .limit(1)
           .get();
-      if (!userDoc.exists) {
+
+      if (userQuery.docs.isEmpty) {
         setState(() {
           _error = 'No user found with this phone.';
           _loading = false;
         });
         return;
       }
+
+      final userDoc = userQuery.docs.first;
       final userData = userDoc.data();
-      if (userData == null || userData['password'] != _password) {
+
+      // Check password
+      if (userData['password'] != _password) {
         setState(() {
           _error = 'Incorrect password.';
           _loading = false;
         });
         return;
       }
+
+      // Update UID in Firestore to match Firebase Auth
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userDoc.id)
+          .update({'uid': userCredential.user!.uid});
+
+      // Navigate to home
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');
-        return;
       }
     } catch (e) {
       setState(() {
@@ -102,6 +124,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  // SMS input dialog
   void _showSmsCodeDialog() {
     showDialog(
       context: context,
@@ -117,9 +140,7 @@ class _AuthScreenState extends State<AuthScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              setState(() {
-                _loading = false;
-              });
+              setState(() => _loading = false);
             },
             child: const Text('Cancel'),
           ),
@@ -157,26 +178,71 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Login to CashLink', style: Theme.of(context).textTheme.headlineLarge),
+                    Text('Login to CashLink',
+                        style: Theme.of(context).textTheme.headlineLarge),
                     const SizedBox(height: 16),
                     if (_error != null)
                       Text(_error!, style: const TextStyle(color: Colors.red)),
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: 'Phone Number'),
-                      keyboardType: TextInputType.phone,
-                      onChanged: (val) => _phone = val.trim(),
-                      validator: (val) =>
-                          val != null && val.trim().isNotEmpty && val.length >= 8 ? null : 'Enter a valid phone',
+
+                    // Phone with country code
+                    Row(
+                      children: [
+                        Flexible(
+                          flex: 2,
+                          child: SizedBox(
+                            height: 55,
+                            child: DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              value: _countryCode,
+                              items: const [
+                                DropdownMenuItem(value: '+20', child: Text('+20 🇪🇬')),
+                                DropdownMenuItem(value: '+966', child: Text('+966 🇸🇦')),
+                                DropdownMenuItem(value: '+971', child: Text('+971 🇦🇪')),
+                                DropdownMenuItem(value: '+1', child: Text('+1 🇺🇸')),
+                              ],
+                              onChanged: (val) => setState(() => _countryCode = val ?? '+20'),
+                              decoration: const InputDecoration(
+                                labelText: 'Code',
+                                contentPadding:
+                                    EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          flex: 5,
+                          child: TextFormField(
+                            decoration: const InputDecoration(
+                              labelText: 'Phone Number',
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.phone,
+                            onChanged: (val) => _phone = val.trim(),
+                            validator: (val) =>
+                                val != null && val.trim().isNotEmpty && val.length >= 8
+                                    ? null
+                                    : 'Enter valid number',
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
+
+                    // Password
                     TextFormField(
                       decoration: const InputDecoration(labelText: 'Password'),
                       obscureText: true,
                       onChanged: (val) => _password = val,
                       validator: (val) =>
-                          val != null && val.isNotEmpty && val.length >= 6 ? null : 'Password min 6 chars',
+                          val != null && val.isNotEmpty && val.length >= 6
+                              ? null
+                              : 'Password min 6 chars',
                     ),
                     const SizedBox(height: 24),
+
+                    // Login button
                     _loading
                         ? const CircularProgressIndicator()
                         : ElevatedButton(
