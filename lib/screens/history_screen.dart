@@ -27,21 +27,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<Map<String, dynamic>?> _getOtherUserData(String uid) async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
     return doc.exists ? doc.data() : null;
   }
 
   double _distance(lat1, lon1, lat2, lon2) {
     const p = 0.017453292519943295;
-    final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
-        cos(lat1 * p) * cos(lat2 * p) *
-            (1 - cos((lon2 - lon1) * p)) / 2;
+    final a = 0.5 -
+        cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) *
+            cos(lat2 * p) *
+            (1 - cos((lon2 - lon1) * p)) /
+            2;
     return 12742 * asin(sqrt(a)); // Distance in km
   }
 
   void _showTransactionDetails(Map<String, dynamic> data) async {
     final user = FirebaseAuth.instance.currentUser!;
-    final otherUID = data['exchangeRequestedBy'] != null && data['exchangeRequestedBy'] != user.uid
+    final otherUID = data['exchangeRequestedBy'] != null &&
+            data['exchangeRequestedBy'] != user.uid
         ? data['exchangeRequestedBy']
         : null;
 
@@ -78,18 +83,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Text(
                 "${data['type']} Details",
                 style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
               const SizedBox(height: 15),
               if (otherUser != null)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _infoRow("Name", otherUser['name']?.split(' ').first ?? 'Unknown'),
+                    _infoRow("Name",
+                        otherUser['name']?.split(' ').first ?? 'Unknown'),
                     _divider(),
                     _infoRow("Gender", otherUser['gender'] ?? 'Unknown'),
                     _divider(),
-                    _infoRow("Amount", "\$${data['amount']?.toStringAsFixed(2) ?? 0.0}"),
+                    _infoRow("Amount",
+                        "\$${(data['amount'] ?? 0.0).toStringAsFixed(2)}"),
                     _divider(),
                     _infoRow("Distance", "~${distance.toStringAsFixed(2)} km"),
                     _divider(),
@@ -102,52 +112,59 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   if (data['status'] == 'requested' && otherUID != null) ...[
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10))),
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 25, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
                       onPressed: () async {
                         await FirebaseFirestore.instance
                             .collection('transactions')
-                            .doc(data['transactionId'])
+                            .doc(data['id']) // نستخدم doc.id
                             .update({'status': 'accepted'});
                         if (!mounted) return;
                         Navigator.of(context).pop();
-                        Navigator.of(context).pushNamed('/agreement', arguments: {
-                          'myTxId': data['transactionId'],
+                        Navigator.of(context)
+                            .pushNamed('/agreement', arguments: {
+                          'myTxId': data['id'],
                           'otherTxId': data['partnerTxId'],
                         });
                       },
-                      child: const Text("Accept", style: TextStyle(fontSize: 16)),
+                      child: const Text("Accept",
+                          style: TextStyle(fontSize: 16)),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10))),
+                        backgroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 25, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
                       onPressed: () async {
                         await FirebaseFirestore.instance
                             .collection('transactions')
-                            .doc(data['transactionId'])
+                            .doc(data['id'])
                             .update({'status': 'rejected'});
                         if (!mounted) return;
                         Navigator.of(context).pop();
                       },
-                      child: const Text("Reject", style: TextStyle(fontSize: 16)),
+                      child: const Text("Reject",
+                          style: TextStyle(fontSize: 16)),
                     ),
                   ] else
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey,
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10))),
+                        backgroundColor: Colors.grey,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 25, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text("Close", style: TextStyle(fontSize: 16)),
+                      child: const Text("Close",
+                          style: TextStyle(fontSize: 16)),
                     ),
                 ],
               ),
@@ -167,7 +184,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Text(
             "$title:",
             style: const TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
           ),
           Text(
             value,
@@ -208,7 +228,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
             itemCount: docs.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (ctx, i) {
-              final data = docs[i].data() as Map<String, dynamic>;
+              final doc = docs[i];
+              final data = doc.data() as Map<String, dynamic>;
+              data['id'] = doc.id; // نخزن docId الصحيح
+
               final type = data['type'] ?? '';
               final amount = data['amount'] ?? 0.0;
               final status = data['status'] ?? 'pending';
@@ -235,7 +258,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                   title: Text(
-                    "$type - \$${amount.toStringAsFixed(2)}",
+                    "$type - \$${(amount as num).toStringAsFixed(2)}",
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text("Status: $status"),
