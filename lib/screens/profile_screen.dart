@@ -114,8 +114,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     DropdownButtonFormField<String>(
                       value: _gender,
                       items: [
-                        DropdownMenuItem(value: 'Male', child: Text(loc.gender == 'الجنس' ? 'ذكر' : 'Male')),
-                        DropdownMenuItem(value: 'Female', child: Text(loc.gender == 'الجنس' ? 'أنثى' : 'Female')),
+                        DropdownMenuItem(value: 'Male', child: Text(loc.male)),
+                        DropdownMenuItem(value: 'Female', child: Text(loc.female)),
                       ],
                       onChanged: (v) => setState(() => _gender = v),
                       decoration: InputDecoration(

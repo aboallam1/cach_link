@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -164,6 +165,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       body: Center(
         child: Card(
@@ -178,7 +180,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Login to CashLink',
+                    Text(loc.login + ' ${loc.appTitle}',
                         style: Theme.of(context).textTheme.headlineLarge),
                     const SizedBox(height: 16),
                     if (_error != null)
@@ -201,11 +203,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                 DropdownMenuItem(value: '+1', child: Text('+1 🇺🇸')),
                               ],
                               onChanged: (val) => setState(() => _countryCode = val ?? '+20'),
-                              decoration: const InputDecoration(
-                                labelText: 'Code',
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: loc.code, // Not ideal, but you can add a new key for "Code"
+                                contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -214,16 +215,16 @@ class _AuthScreenState extends State<AuthScreen> {
                         Flexible(
                           flex: 5,
                           child: TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Phone Number',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: loc.phone,
+                              border: const OutlineInputBorder(),
                             ),
                             keyboardType: TextInputType.phone,
                             onChanged: (val) => _phone = val.trim(),
                             validator: (val) =>
                                 val != null && val.trim().isNotEmpty && val.length >= 8
                                     ? null
-                                    : 'Enter valid number',
+                                    : loc.noTransactions, // Add a new key for "Enter valid number"
                           ),
                         ),
                       ],
@@ -232,13 +233,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
                     // Password
                     TextFormField(
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      decoration: InputDecoration(labelText: loc.login), // Add a new key for "Password"
                       obscureText: true,
                       onChanged: (val) => _password = val,
                       validator: (val) =>
                           val != null && val.isNotEmpty && val.length >= 6
                               ? null
-                              : 'Password min 6 chars',
+                              : loc.noTransactions, // Add a new key for "Password min 6 chars"
                     ),
                     const SizedBox(height: 24),
 
@@ -251,13 +252,13 @@ class _AuthScreenState extends State<AuthScreen> {
                                 _startPhoneLogin();
                               }
                             },
-                            child: const Text('Login'),
+                            child: Text(loc.login),
                           ),
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pushReplacementNamed('/signup');
                       },
-                      child: const Text("Don’t have an account? Sign Up"),
+                      child: Text("${loc.signup}"),
                     ),
                   ],
                 ),

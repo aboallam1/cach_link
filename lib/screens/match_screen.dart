@@ -211,7 +211,7 @@ class _MatchScreenState extends State<MatchScreen> {
                     if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
                       return Card(
                         child: ListTile(
-                          title: Text('${user['name']} (${user['gender']})'),
+                          title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
                           subtitle: Text(
                             '${loc.requested}\n'
                             '${loc.amount}: ${txData['amount']} | '
@@ -238,11 +238,11 @@ class _MatchScreenState extends State<MatchScreen> {
                     // Normal cards (can send Exchange Request)
                     return Card(
                       child: ListTile(
-                        title: Text('${user['name']} (${user['gender']})'),
+                        title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
                         subtitle: Text(
                           '${loc.amount}: ${txData['amount']} | '
                           '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
-                          'Rating: ${user['rating']}',
+                          '${loc.rating}: ${user['rating']}',
                         ),
                         trailing: ElevatedButton(
                           onPressed: () => _sendExchangeRequest(tx, user.id),

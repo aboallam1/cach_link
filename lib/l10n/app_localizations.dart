@@ -27,7 +27,7 @@ class AppLocalizations {
       'login': 'Login',
       'signup': 'Sign Up',
       'logout': 'Logout',
-      'changeLanguage': 'Change Language',
+      'code': 'Code',
       'waitingForOther': 'Waiting for the other party to accept your request...',
       'agreementTitle': 'Agreement',
       'confirmTransaction': 'Confirm Transaction',
@@ -53,6 +53,19 @@ class AppLocalizations {
       'close': 'Close',
       'locationShared': 'Set Location',
       'locationSharedMessage': 'Location Selected',
+      'meetingWarning': 'Meet in a public place. Don’t hand over cash before confirming transfer.',
+      'exchangeRequestFrom': 'Exchange request from:',
+      'cashReceived': 'Cash Received',
+      'instapayTransferred': 'Transferred via Instapay',
+      'exchangeCompleted': 'Exchange completed ✅',
+      'counterpartyDetails': 'Counterparty Details',
+      'locationNotShared': 'Their location is not shared yet',
+      'sharing': 'Sharing...',
+      'sendMyLocation': 'Send My Location',
+      'male': 'Male',
+      'female': 'Female',
+      'phone': 'Phone',
+      'rating': 'Rating',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -63,7 +76,7 @@ class AppLocalizations {
       'login': 'تسجيل الدخول',
       'signup': 'إنشاء حساب',
       'logout': 'تسجيل الخروج',
-      'changeLanguage': 'تغيير اللغة',
+      'code': 'الرمز',
       'waitingForOther': 'في انتظار الطرف الآخر لقبول طلبك...',
       'agreementTitle': 'الاتفاق',
       'confirmTransaction': 'تأكيد المعاملة',
@@ -89,6 +102,19 @@ class AppLocalizations {
       'close': 'إغلاق',
       'locationShared': 'تحديد الموقع',
       'locationSharedMessage': 'تم اختيار الموقع',
+      'meetingWarning': 'اجتمع في مكان عام. لا تسلم النقود قبل تأكيد التحويل.',
+      'exchangeRequestFrom': 'طلب تبادل من:',
+      'cashReceived': 'النقود المستلمة',
+      'instapayTransferred': 'تم التحويل عبر إنستاباي',
+      'exchangeCompleted': 'تمت عملية التبادل ✅',
+      'counterpartyDetails': 'تفاصيل الطرف الآخر',
+      'locationNotShared': 'لم يتم مشاركة موقعهم بعد',
+      'sharing': 'جارٍ المشاركة...',
+      'sendMyLocation': 'أرسل موقعي',
+      'male': 'ذكر',
+      'female': 'أنثى',
+      'phone': 'الهاتف',
+      'rating': 'التقييم',
     },
   };
 
@@ -134,6 +160,20 @@ class AppLocalizations {
   String get close => _t('close');
   String get locationShared => _t('locationShared');
   String get locationSharedMessage => _t('locationSharedMessage');
+  String get meetingWarning => _t('meetingWarning');
+  String get exchangeRequestFrom => _t('exchangeRequestFrom');
+  String get cashReceived => _t('cashReceived');
+  String get instapayTransferred => _t('instapayTransferred');
+  String get exchangeCompleted => _t('exchangeCompleted');
+  String get counterpartyDetails => _t('counterpartyDetails');
+  String get locationNotShared => _t('locationNotShared');
+  String get sharing => _t('sharing');
+  String get sendMyLocation => _t('sendMyLocation');
+  String get male => _t('male');
+  String get female => _t('female');
+  String get phone => _t('phone');
+  String get rating => _t('rating');
+  String get code => _t('code');
 }
 
 class _AppLocalizationsDelegate

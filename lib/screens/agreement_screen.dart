@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:location/location.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class AgreementScreen extends StatefulWidget {
   const AgreementScreen({super.key});
@@ -153,13 +154,14 @@ class _AgreementScreenState extends State<AgreementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final args = ModalRoute.of(context)!.settings.arguments as Map?;
     final myTxId = args?['myTxId'] as String?;
     final otherTxIdArg = args?['otherTxId'] as String?;
 
     if (myTxId == null) {
-      return const Scaffold(
-          body: Center(child: Text('Missing myTxId in arguments')));
+      return Scaffold(
+          body: Center(child: Text(loc.noTransactions))); // Use a suitable key
     }
 
     final myTxStream = FirebaseFirestore.instance
@@ -176,18 +178,17 @@ class _AgreementScreenState extends State<AgreementScreen> {
         }
         final myDoc = mySnap.data!;
         if (!myDoc.exists) {
-          return const Scaffold(
-              body: Center(child: Text('Transaction not found')));
+          return Scaffold(
+              body: Center(child: Text(loc.noTransactions))); // Use a suitable key
         }
         final myData = myDoc.data() as Map<String, dynamic>;
         final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
         final otherTxId = otherTxIdArg ?? (myData['partnerTxId'] as String?);
         if (otherTxId == null) {
-          return const Scaffold(
+          return Scaffold(
               body: Center(
-                  child: Text(
-                      'Missing otherTxId (pass it in arguments or set partnerTxId)')));
+                  child: Text(loc.noTransactions))); // Use a suitable key
         }
 
         final iAmRequester = (myData['exchangeRequestedBy'] == currentUserId);
@@ -210,8 +211,8 @@ class _AgreementScreenState extends State<AgreementScreen> {
                 otherTxDoc.data() as Map<String, dynamic>?;
 
             if (otherTxData == null) {
-              return const Scaffold(
-                  body: Center(child: Text('Other transaction not found')));
+              return Scaffold(
+                  body: Center(child: Text(loc.noTransactions)));
             }
 
             final otherUserId = otherTxData['userId'] as String;
@@ -234,7 +235,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
 
                 return Scaffold(
                   appBar: AppBar(
-                    title: const Text('Agreement'),
+                    title: Text(loc.agreementTitle),
                     backgroundColor: Colors.blueGrey[800],
                   ),
                   body: Container(
@@ -258,14 +259,14 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Row(
-                                children: const [
-                                  Icon(Icons.warning,
+                                children: [
+                                  const Icon(Icons.warning,
                                       color: Colors.red, size: 28),
-                                  SizedBox(width: 10),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
-                                      'Meet in a public place. Don’t hand over cash before confirming transfer.',
-                                      style: TextStyle(
+                                      loc.meetingWarning, // Add this key to your localization file
+                                      style: const TextStyle(
                                           color: Colors.red,
                                           fontWeight: FontWeight.w600),
                                     ),
@@ -279,10 +280,9 @@ class _AgreementScreenState extends State<AgreementScreen> {
                           if (status == 'requested' && iAmRequester) ...[
                             _infoCard(
                               icon: Icons.hourglass_top,
-                              title:
-                                  'Waiting for the other party to accept your request',
+                              title: loc.waitingForOther,
                               subtitle:
-                                  'Other user: ${otherUser['name'] ?? 'Unknown'}',
+                                  '${loc.name}: ${otherUser['name'] ?? 'Unknown'}',
                             ),
                           ] else if (status == 'requested' &&
                               !iAmRequester) ...[
@@ -293,11 +293,12 @@ class _AgreementScreenState extends State<AgreementScreen> {
                               onDecline: () =>
                                   _declineRequest(myTxId, otherTxId),
                               busy: _busy,
+                              loc: loc,
                             ),
                           ],
 
                           if (status == 'accepted' || status == 'completed')
-                            _detailsCard(otherUser, otherSharedLocation),
+                            _detailsCard(otherUser, otherSharedLocation, loc),
 
                           const Spacer(),
                           if (status == 'accepted')
@@ -317,14 +318,14 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                         iAmDeposit: iAmDeposit,
                                       ),
                               label: Text(iAmDeposit
-                                  ? 'Transferred via Instapay'
-                                  : 'Cash Received'),
+                                  ? loc.instapayTransferred
+                                  : loc.cashReceived),
                             ),
                           if (status == 'completed')
-                            const Center(
+                            Center(
                               child: Text(
-                                'Exchange completed ✅',
-                                style: TextStyle(
+                                loc.exchangeCompleted,
+                                style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.green),
@@ -360,6 +361,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
     required VoidCallback onAccept,
     required VoidCallback onDecline,
     required bool busy,
+    required AppLocalizations loc,
   }) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -369,7 +371,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Exchange request from: $name',
+            Text('${loc.exchangeRequestFrom} $name',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(
@@ -378,7 +380,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                   child: OutlinedButton.icon(
                     onPressed: busy ? null : onDecline,
                     icon: const Icon(Icons.close, color: Colors.red),
-                    label: const Text('Decline'),
+                    label: Text(loc.reject),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -389,7 +391,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                     ),
                     onPressed: busy ? null : onAccept,
                     icon: const Icon(Icons.check, color: Colors.white),
-                    label: const Text('Accept'),
+                    label: Text(loc.accept),
                   ),
                 ),
               ],
@@ -400,7 +402,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
     );
   }
 
-  Widget _detailsCard(Map<String, dynamic> otherUser, Map<String, dynamic>? otherLocation) {
+  Widget _detailsCard(Map<String, dynamic> otherUser, Map<String, dynamic>? otherLocation, AppLocalizations loc) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
@@ -409,29 +411,28 @@ class _AgreementScreenState extends State<AgreementScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Counterparty Details',
-                style: TextStyle(
+            Text(loc.counterpartyDetails,
+                style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                     color: Colors.blueGrey)),
             const SizedBox(height: 8),
-            Text('Name: ${otherUser['name'] ?? '-'}'),
-            Text('Gender: ${otherUser['gender'] ?? '-'}'),
-            Text('Phone: ${otherUser['phone'] ?? '-'}'),
-            Text('Rating: ${otherUser['rating'] ?? '-'}'),
+            Text('${loc.name}: ${otherUser['name'] ?? '-'}'),
+            Text('${loc.gender}: ${otherUser['gender'] ?? '-'}'),
+            Text('${loc.phone}: ${otherUser['phone'] ?? '-'}'),
+            Text('${loc.rating}: ${otherUser['rating'] ?? '-'}'),
             const Divider(),
             if (otherLocation != null)
-              Text(
-                  'Location shared ✓ (Lat: ${otherLocation['lat']}, Lng: ${otherLocation['lng']})')
+              Text('${loc.locationShared} (Lat: ${otherLocation['lat']}, Lng: ${otherLocation['lng']})')
             else
-              const Text('Their location is not shared yet'),
+              Text(loc.locationNotShared),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _sharingLocation ? null : () => _shareMyLocation(otherUser['id']),
               icon: const Icon(Icons.location_on, color: Colors.blueGrey),
               label: _sharingLocation
-                  ? const Text('Sharing...')
-                  : const Text('Send My Location'),
+                  ? Text(loc.sharing)
+                  : Text(loc.sendMyLocation),
             )
           ],
         ),
