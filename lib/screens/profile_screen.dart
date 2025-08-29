@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -60,12 +61,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         elevation: 0,
-        title: const Text('Complete Profile'),
+        title: Text(loc.profile),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -83,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              "Set up your profile",
+              loc.profile, // "Set up your profile"
               style: theme.textTheme.titleLarge!.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -101,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     TextField(
                       controller: _nameController,
                       decoration: InputDecoration(
-                        labelText: 'First Name',
+                        labelText: loc.name,
                         prefixIcon: const Icon(Icons.person),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -111,13 +113,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: _gender,
-                      items: const [
-                        DropdownMenuItem(value: 'Male', child: Text('Male')),
-                        DropdownMenuItem(value: 'Female', child: Text('Female')),
+                      items: [
+                        DropdownMenuItem(value: 'Male', child: Text(loc.gender == 'الجنس' ? 'ذكر' : 'Male')),
+                        DropdownMenuItem(value: 'Female', child: Text(loc.gender == 'الجنس' ? 'أنثى' : 'Female')),
                       ],
                       onChanged: (v) => setState(() => _gender = v),
                       decoration: InputDecoration(
-                        labelText: 'Gender',
+                        labelText: loc.gender,
                         prefixIcon: const Icon(Icons.wc),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -129,7 +131,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onPressed: _pickImage,
                       icon: const Icon(Icons.upload),
                       label: Text(
-                        _idImage == null ? 'Upload ID Photo' : 'Change ID Photo',
+                        _idImage == null
+                            ? (loc.locale.languageCode == 'ar' ? 'تحميل صورة الهوية' : 'Upload ID Photo')
+                            : (loc.locale.languageCode == 'ar' ? 'تغيير صورة الهوية' : 'Change ID Photo'),
                       ),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(50),
@@ -164,9 +168,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text(
-                      "Submit Profile",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    child: Text(
+                      loc.confirmTransaction, // "Submit Profile"
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
           ],
@@ -177,11 +181,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         selectedItemColor: const Color(0xFFE53935),
         unselectedItemColor: Colors.grey,
         onTap: _onNavTap,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: loc.home),
+          BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.profile),
+          BottomNavigationBarItem(icon: const Icon(Icons.history), label: loc.history),
+          BottomNavigationBarItem(icon: const Icon(Icons.settings), label: loc.settings),
         ],
       ),
     );
