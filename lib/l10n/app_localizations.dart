@@ -35,6 +35,22 @@ class AppLocalizations {
       'notifications': 'Notifications',
       'deposit': 'Deposit',
       'withdraw': 'Withdraw',
+      'pending': 'Pending',
+      'accepted': 'Accepted',
+      'rejected': 'Rejected',
+      'canceled': 'Canceled',
+      'requested': 'Requested',
+      'transactionHistory': 'Transaction History',
+      'noTransactions': 'No transactions yet.',
+      'details': 'Details',
+      'name': 'Name',
+      'gender': 'Gender',
+      'amount': 'Amount',
+      'distance': 'Distance',
+      'status': 'Status',
+      'accept': 'Accept',
+      'reject': 'Reject',
+      'close': 'Close',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -53,6 +69,22 @@ class AppLocalizations {
       'notifications': 'الإشعارات',
       'deposit': 'إيداع',
       'withdraw': 'سحب',
+      'pending': 'قيد الانتظار',
+      'accepted': 'تم القبول',
+      'rejected': 'مرفوض',
+      'canceled': 'ملغي',
+      'requested': 'بانتظار الموافقة',
+      'transactionHistory': 'تاريخ المعاملات',
+      'noTransactions': 'لا توجد معاملات بعد.',
+      'details': 'تفاصيل',
+      'name': 'الاسم',
+      'gender': 'الجنس',
+      'amount': 'المبلغ',
+      'distance': 'المسافة',
+      'status': 'الحالة',
+      'accept': 'قبول',
+      'reject': 'رفض',
+      'close': 'إغلاق',
     },
   };
 
@@ -80,6 +112,22 @@ class AppLocalizations {
   String get notifications => _t('notifications');
   String get deposit => _t('deposit');
   String get withdraw => _t('withdraw');
+  String get pending => _t('pending');
+  String get accepted => _t('accepted');
+  String get rejected => _t('rejected');
+  String get canceled => _t('canceled');
+  String get requested => _t('requested');
+  String get transactionHistory => _t('transactionHistory');
+  String get noTransactions => _t('noTransactions');
+  String get details => _t('details');
+  String get name => _t('name');
+  String get gender => _t('gender');
+  String get amount => _t('amount');
+  String get distance => _t('distance');
+  String get status => _t('status');
+  String get accept => _t('accept');
+  String get reject => _t('reject');
+  String get close => _t('close');
 }
 
 class _AppLocalizationsDelegate

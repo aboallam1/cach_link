@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -44,6 +45,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   void _showTransactionDetails(Map<String, dynamic> data) async {
+    final loc = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser!;
     final otherUID = data['exchangeRequestedBy'] != null &&
             data['exchangeRequestedBy'] != user.uid
@@ -81,7 +83,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                "${data['type']} Details",
+                "${_localizedType(data['type'], loc)} ${loc.details}",
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -93,15 +95,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _infoRow("Name",
+                    _infoRow(loc.name,
                         otherUser['name']?.split(' ').first ?? 'Unknown'),
                     _divider(),
-                    _infoRow("Gender", otherUser['gender'] ?? 'Unknown'),
+                    _infoRow(loc.gender, otherUser['gender'] ?? 'Unknown'),
                     _divider(),
-                    _infoRow("Amount",
+                    _infoRow(loc.amount,
                         "\$${(data['amount'] ?? 0.0).toStringAsFixed(2)}"),
                     _divider(),
-                    _infoRow("Distance", "~${distance.toStringAsFixed(2)} km"),
+                    _infoRow(loc.distance, "~${distance.toStringAsFixed(2)} km"),
                     _divider(),
                   ],
                 ),
@@ -121,7 +123,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       onPressed: () async {
                         await FirebaseFirestore.instance
                             .collection('transactions')
-                            .doc(data['id']) // نستخدم doc.id
+                            .doc(data['id'])
                             .update({'status': 'accepted'});
                         if (!mounted) return;
                         Navigator.of(context).pop();
@@ -131,8 +133,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           'otherTxId': data['partnerTxId'],
                         });
                       },
-                      child: const Text("Accept",
-                          style: TextStyle(fontSize: 16)),
+                      child: Text(loc.accept, style: const TextStyle(fontSize: 16)),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -150,8 +151,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         if (!mounted) return;
                         Navigator.of(context).pop();
                       },
-                      child: const Text("Reject",
-                          style: TextStyle(fontSize: 16)),
+                      child: Text(loc.reject, style: const TextStyle(fontSize: 16)),
                     ),
                   ] else
                     ElevatedButton(
@@ -163,8 +163,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text("Close",
-                          style: TextStyle(fontSize: 16)),
+                      child: Text(loc.close, style: const TextStyle(fontSize: 16)),
                     ),
                 ],
               ),
@@ -204,10 +203,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Transaction History")),
+      appBar: AppBar(title: Text(loc.transactionHistory)),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('transactions')
@@ -220,7 +220,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           }
           final docs = snapshot.data?.docs ?? [];
           if (docs.isEmpty) {
-            return const Center(child: Text("No transactions yet."));
+            return Center(child: Text(loc.noTransactions));
           }
 
           return ListView.separated(
@@ -230,7 +230,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             itemBuilder: (ctx, i) {
               final doc = docs[i];
               final data = doc.data() as Map<String, dynamic>;
-              data['id'] = doc.id; // نخزن docId الصحيح
+              data['id'] = doc.id;
 
               final type = data['type'] ?? '';
               final amount = data['amount'] ?? 0.0;
@@ -258,10 +258,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                   title: Text(
-                    "$type - \$${(amount as num).toStringAsFixed(2)}",
+                    "${_localizedType(type, loc)} - \$${(amount as num).toStringAsFixed(2)}",
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text("Status: $status"),
+                  subtitle: Text("${loc.status}: ${_localizedStatus(status, loc)}"),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showTransactionDetails(data),
                 ),
@@ -275,13 +275,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
         selectedItemColor: const Color(0xFFE53935),
         unselectedItemColor: Colors.grey,
         onTap: _onNavTap,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: loc.home),
+          BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.profile),
+          BottomNavigationBarItem(icon: const Icon(Icons.history), label: loc.history),
+          BottomNavigationBarItem(icon: const Icon(Icons.settings), label: loc.settings),
         ],
       ),
     );
+  }
+
+  // Helper to localize transaction type
+  String _localizedType(String? type, AppLocalizations loc) {
+    switch (type) {
+      case 'Deposit':
+        return loc.deposit;
+      case 'Withdraw':
+        return loc.withdraw;
+      default:
+        return type ?? '';
+    }
+  }
+
+  // Helper to localize transaction status
+  String _localizedStatus(String? status, AppLocalizations loc) {
+    switch (status) {
+      case 'pending':
+        return loc.pending;
+      case 'accepted':
+        return loc.accepted;
+      case 'rejected':
+        return loc.rejected;
+      case 'canceled':
+        return loc.canceled;
+      case 'requested':
+        return loc.requested;
+      default:
+        return status ?? '';
+    }
   }
 }
