@@ -51,6 +51,8 @@ class AppLocalizations {
       'accept': 'Accept',
       'reject': 'Reject',
       'close': 'Close',
+      'locationShared': 'Set Location',
+      'locationSharedMessage': 'Location Selected',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -85,6 +87,8 @@ class AppLocalizations {
       'accept': 'قبول',
       'reject': 'رفض',
       'close': 'إغلاق',
+      'locationShared': 'تحديد الموقع',
+      'locationSharedMessage': 'تم اختيار الموقع',
     },
   };
 
@@ -128,6 +132,8 @@ class AppLocalizations {
   String get accept => _t('accept');
   String get reject => _t('reject');
   String get close => _t('close');
+  String get locationShared => _t('locationShared');
+  String get locationSharedMessage => _t('locationSharedMessage');
 }
 
 class _AppLocalizationsDelegate
