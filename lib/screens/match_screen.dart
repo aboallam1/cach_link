@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
@@ -148,6 +149,7 @@ class _MatchScreenState extends State<MatchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -155,26 +157,26 @@ class _MatchScreenState extends State<MatchScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Matches')),
+      appBar: AppBar(title: Text(loc.notifications)), // Use a new key if you want "Matches"
       body: Column(
         children: [
-          // فلتر
+          // Filter
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: DropdownButtonFormField<String>(
               value: _filterType,
               decoration: InputDecoration(
-                labelText: "Filter By",
+                labelText: loc.changeLanguage, // Or add a new key for "Filter By"
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              items: const [
+              items: [
                 DropdownMenuItem(
                   value: "distance",
-                  child: Text("Closest Distance"),
+                  child: Text(loc.distance), // Or add a new key for "Closest Distance"
                 ),
                 DropdownMenuItem(
                   value: "amount",
-                  child: Text("Closest Amount"),
+                  child: Text(loc.amount), // Or add a new key for "Closest Amount"
                 ),
               ],
               onChanged: (val) {
@@ -194,24 +196,27 @@ class _MatchScreenState extends State<MatchScreen> {
                 final txData = tx.data() as Map<String, dynamic>?;
 
                 if (txData == null || !txData.containsKey('userId')) {
-                  return const ListTile(title: Text('Invalid transaction data'));
+                  return ListTile(title: Text(loc.noTransactions));
                 }
 
                 return FutureBuilder<DocumentSnapshot>(
                   future: FirebaseFirestore.instance.collection('users').doc(txData['userId']).get(),
                   builder: (ctx, snap) {
-                    if (!snap.hasData) return const ListTile(title: Text('Loading...'));
+                    if (!snap.hasData) return ListTile(title: Text(loc.waitingForOther));
                     final user = snap.data!;
-                    final loc = txData['location'];
-                    final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+                    final locData = txData['location'];
+                    final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
 
-                    // ⚠️ إذا هناك طلب exchange قادم من الطرف الآخر
+                    // If there is an exchange request from the other party
                     if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
                       return Card(
                         child: ListTile(
                           title: Text('${user['name']} (${user['gender']})'),
                           subtitle: Text(
-                            'Exchange Request received!\nAmount: ${txData['amount']} | Distance: ~${dist.toStringAsFixed(2)} km | Rating: ${user['rating']}',
+                            '${loc.requested}\n'
+                            '${loc.amount}: ${txData['amount']} | '
+                            '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
+                            'Rating: ${user['rating']}',
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -230,16 +235,18 @@ class _MatchScreenState extends State<MatchScreen> {
                       );
                     }
 
-                    // ⚡ الكروت العادية (ممكن عمل Exchange Request)
+                    // Normal cards (can send Exchange Request)
                     return Card(
                       child: ListTile(
                         title: Text('${user['name']} (${user['gender']})'),
                         subtitle: Text(
-                          'Amount: ${txData['amount']} | Distance: ~${dist.toStringAsFixed(2)} km | Rating: ${user['rating']}',
+                          '${loc.amount}: ${txData['amount']} | '
+                          '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
+                          'Rating: ${user['rating']}',
                         ),
                         trailing: ElevatedButton(
                           onPressed: () => _sendExchangeRequest(tx, user.id),
-                          child: const Text('Exchange Request'),
+                          child: Text(loc.confirmTransaction), // Or add a new key for "Exchange Request"
                         ),
                       ),
                     );
