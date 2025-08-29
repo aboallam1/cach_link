@@ -157,7 +157,7 @@ class _MatchScreenState extends State<MatchScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(loc.notifications)), // Use a new key if you want "Matches"
+      appBar: AppBar(title: Text(loc.Matches)), // Use a new key if you want "Matches"
       body: Column(
         children: [
           // Filter
@@ -166,7 +166,7 @@ class _MatchScreenState extends State<MatchScreen> {
             child: DropdownButtonFormField<String>(
               value: _filterType,
               decoration: InputDecoration(
-                labelText: loc.changeLanguage, // Or add a new key for "Filter By"
+                labelText: loc.filterBy,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
               items: [

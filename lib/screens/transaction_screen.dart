@@ -74,7 +74,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text(loc.confirmTransaction), // Or add a new key for "New Transaction"
+        title: Text(loc.NewTransaction), // Use getter, not property with space
         elevation: 0,
         centerTitle: true,
       ),
@@ -85,14 +85,14 @@ class _TransactionScreenState extends State<TransactionScreen> {
           children: [
             // Header
             Text(
-              loc.confirmTransaction, // Or add a new key for "Create Transaction"
+              loc.CreateTransaction, // Use getter, not property with space
               style: theme.textTheme.headlineSmall!.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              loc.waitingForOther, // Or add a new key for the description
+              loc.descriptionOfNewTransaction,
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 24),

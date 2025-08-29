@@ -40,7 +40,7 @@ class AppLocalizations {
       'rejected': 'Rejected',
       'canceled': 'Canceled',
       'requested': 'Requested',
-      'transactionHistory': 'Transaction History',
+      'transactionHistory': 'Transactions History',
       'noTransactions': 'No transactions yet.',
       'details': 'Details',
       'name': 'Name',
@@ -72,6 +72,13 @@ class AppLocalizations {
       'cancel': 'Cancel',
       'verify': 'Verify',
       'transactionType': 'Transaction Type',
+      'save': 'Save',
+      'filterBy': 'Filter By',
+      'changeLanguage': 'Change Language',
+      'Matches': 'Matches',
+      'Create Transaction': 'Create Transaction',
+      'New Transaction': 'New Transaction',
+      'descriptionOfNewTransaction': 'Create a new transaction.',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -111,7 +118,7 @@ class AppLocalizations {
       'meetingWarning': 'اجتمع في مكان عام. لا تسلم النقود قبل تأكيد التحويل.',
       'exchangeRequestFrom': 'طلب تبادل من:',
       'cashReceived': 'النقود المستلمة',
-      'instapayTransferred': 'تم التحويل عبر إنستاباي',
+      'instapayTransferred': 'تم التحويل ',
       'exchangeCompleted': 'تمت عملية التبادل ✅',
       'counterpartyDetails': 'تفاصيل الطرف الآخر',
       'locationNotShared': 'لم يتم مشاركة موقعك ',
@@ -127,6 +134,13 @@ class AppLocalizations {
       'cancel': 'إلغاء',
       'verify': 'تأكيد',
       'transactionType': 'نوع المعاملة',
+      'save': 'حفظ',
+      'filterBy': 'اعطي اولوية ل',
+      'changeLanguage': 'غير اللغة',
+      'Matches': 'الطلبات المتشابهة',
+      'Create Transaction': 'إنشاء معاملة',
+      'New Transaction': 'معاملة جديدة',
+      'descriptionOfNewTransaction': 'قم بإنشاء معاملة جديدة.',
     },
   };
 
@@ -146,7 +160,7 @@ class AppLocalizations {
   String get login => _t('login');
   String get signup => _t('signup');
   String get logout => _t('logout');
-  String get changeLanguage => _t('changeLanguage');
+  String get filterBy => _t('filterBy');
   String get waitingForOther => _t('waitingForOther');
   String get agreementTitle => _t('agreementTitle');
   String get confirmTransaction => _t('confirmTransaction');
@@ -192,6 +206,12 @@ class AppLocalizations {
   String get cancel => _t('cancel');
   String get verify => _t('verify');
   String get transactionType => _t('transactionType');
+  String get save => _t('save');
+  String get changeLanguage => _t('changeLanguage');
+  String get Matches => _t('Matches');
+  String get CreateTransaction => _t('Create Transaction');
+  String get NewTransaction => _t('New Transaction');
+  String get descriptionOfNewTransaction => _t('descriptionOfNewTransaction');
 }
 
 class _AppLocalizationsDelegate
