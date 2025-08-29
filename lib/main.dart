@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
+
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/profile_screen.dart';
@@ -11,9 +14,9 @@ import 'screens/match_screen.dart';
 import 'screens/agreement_screen.dart';
 import 'screens/rating_screen.dart';
 import 'screens/signup_screen.dart';
-import 'screens/settings_screen.dart';   // ✅ Add
-import 'screens/history_screen.dart';    // ✅ Add
-import 'screens/notifications_screen.dart';    // ✅ Add
+import 'screens/settings_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/notifications_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,13 +26,34 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+  @override
+  State<MyApp> createState() => MyAppState();
+}
+
+class MyAppState extends State<MyApp> {
+  Locale _locale = const Locale('en');
+
+  void setLocale(Locale locale) {
+    setState(() {
+      _locale = locale;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'CashLink',
+      debugShowCheckedModeBanner: false,
+      locale: _locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         primaryColor: Colors.white,
@@ -90,9 +114,9 @@ class MyApp extends StatelessWidget {
         '/match': (_) => const MatchScreen(),
         '/agreement': (_) => const AgreementScreen(),
         '/rating': (_) => const RatingScreen(),
-        '/settings': (_) => const SettingsScreen(),   // ✅ Add
-        '/history': (_) => const HistoryScreen(),     // ✅ Add
-        '/notifications': (_) => const NotificationsScreen(),     // ✅ Add
+        '/settings': (_) => const SettingsScreen(),
+        '/history': (_) => const HistoryScreen(),
+        '/notifications': (_) => const NotificationsScreen(),
       },
     );
   }

@@ -1,0 +1,19 @@
+{
+  "@@locale": "ar",
+  "appTitle": "كاش لينك",
+  "home": "الرئيسية",
+  "profile": "الملف الشخصي",
+  "history": "السجل",
+  "settings": "الإعدادات",
+  "login": "تسجيل الدخول",
+  "signup": "إنشاء حساب",
+  "logout": "تسجيل الخروج",
+  "changeLanguage": "تغيير اللغة",
+  "waitingForOther": "في انتظار الطرف الآخر لقبول طلبك...",
+  "agreementTitle": "الاتفاق",
+  "confirmTransaction": "تأكيد المعاملة",
+  "rateUser": "تقييم المستخدم",
+  "notifications": "الإشعارات",
+  "deposit": "إيداع",
+  "withdraw": "سحب"
+}

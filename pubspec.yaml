@@ -9,9 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.16.0
-  cloud_firestore: ^4.13.0
+  firebase_core: any
+  firebase_auth: any
+  cloud_firestore: any
+  flutter_localizations:
+    sdk: flutter
   google_maps_flutter: ^2.5.0
   location: ^6.0.2
   local_auth: ^2.1.7
@@ -25,3 +27,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
+

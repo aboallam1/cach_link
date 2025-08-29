@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "appTitle": "CashLink",
+  "home": "Home",
+  "profile": "Profile",
+  "history": "History",
+  "settings": "Settings",
+  "login": "Login",
+  "signup": "Sign Up",
+  "logout": "Logout",
+  "changeLanguage": "Change Language",
+  "waitingForOther": "Waiting for the other party to accept your request...",
+  "agreementTitle": "Agreement",
+  "confirmTransaction": "Confirm Transaction",
+  "rateUser": "Rate User",
+  "notifications": "Notifications",
+  "deposit": "Deposit",
+  "withdraw": "Withdraw"
+}

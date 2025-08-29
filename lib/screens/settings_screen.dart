@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
+import '../main.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -9,7 +11,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  int _selectedIndex = 3; // Settings tab
+  int _selectedIndex = 3;
 
   void _onNavTap(int index) {
     setState(() => _selectedIndex = index);
@@ -19,8 +21,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       Navigator.of(context).pushReplacementNamed('/profile');
     } else if (index == 2) {
       Navigator.of(context).pushReplacementNamed('/history');
-    } else if (index == 3) {
-      // Already on Settings
     }
   }
 
@@ -29,21 +29,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.of(context).pushReplacementNamed('/auth');
   }
 
+  void _changeLanguage(String langCode) {
+    final state = context.findAncestorStateOfType<MyAppState>();
+    if (state != null) {
+      state.setLocale(Locale(langCode));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text("Settings")),
+      appBar: AppBar(title: Text(loc.settings)),
       body: ListView(
         children: [
-          const ListTile(
-            leading: Icon(Icons.language),
-            title: Text("Change Language"),
-            trailing: Icon(Icons.arrow_forward_ios, size: 16),
+          ExpansionTile(
+            leading: const Icon(Icons.language),
+            title: Text(loc.changeLanguage),
+            children: [
+              ListTile(
+                title: const Text("العربية"),
+                onTap: () => _changeLanguage("ar"),
+              ),
+              ListTile(
+                title: const Text("English"),
+                onTap: () => _changeLanguage("en"),
+              ),
+            ],
           ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.exit_to_app, color: Colors.red),
-            title: const Text("Logout", style: TextStyle(color: Colors.red)),
+            title: Text(loc.logout, style: const TextStyle(color: Colors.red)),
             onTap: () => _logout(context),
           ),
         ],
@@ -53,11 +70,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         selectedItemColor: const Color(0xFFE53935),
         unselectedItemColor: Colors.grey,
         onTap: _onNavTap,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: loc.home),
+          BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.profile),
+          BottomNavigationBarItem(icon: const Icon(Icons.history), label: loc.history),
+          BottomNavigationBarItem(icon: const Icon(Icons.settings), label: loc.settings),
         ],
       ),
     );

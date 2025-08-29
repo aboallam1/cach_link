@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -64,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CashLink Home', style: TextStyle(color: Colors.black)),
+        title: Text(loc.appTitle, style: const TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black),
@@ -86,10 +88,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.credit_card, color: Colors.white, size: 32),
-                        SizedBox(width: 16),
-                        Text('Deposit', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                      children:  [
+                        const Icon(Icons.credit_card, color: Colors.white, size: 32),
+                        const SizedBox(width: 16),
+                        Text(loc.deposit, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -110,10 +112,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.attach_money, color: Colors.white, size: 32),
-                        SizedBox(width: 16),
-                        Text('Withdraw', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                      children:  [
+                        const Icon(Icons.attach_money, color: Colors.white, size: 32),
+                        const SizedBox(width: 16),
+                        Text(loc.withdraw, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -128,11 +130,11 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: const Color(0xFFE53935),
         unselectedItemColor: Colors.grey,
         onTap: _onNavTap,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        items:  [
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: loc.home),
+          BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.profile),
+          BottomNavigationBarItem(icon: const Icon(Icons.history), label: loc.history),
+          BottomNavigationBarItem(icon: const Icon(Icons.settings), label: loc.settings),
         ],
       ),
     );
