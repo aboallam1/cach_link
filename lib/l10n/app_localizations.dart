@@ -31,7 +31,7 @@ class AppLocalizations {
       'waitingForOther': 'Waiting for the other party to accept your request...',
       'agreementTitle': 'Agreement',
       'confirmTransaction': 'Confirm Transaction',
-      'rateUser': 'Rate User',
+      'findMatch': 'Find Match',
       'notifications': 'Notifications',
       'deposit': 'Deposit',
       'withdraw': 'Withdraw',
@@ -66,6 +66,11 @@ class AppLocalizations {
       'female': 'Female',
       'phone': 'Phone',
       'rating': 'Rating',
+      'password': 'Password',
+      'smsCode': 'SMS Code',
+      'enterSmsCode': 'Enter SMS Code',
+      'cancel': 'Cancel',
+      'verify': 'Verify',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -74,13 +79,13 @@ class AppLocalizations {
       'history': 'السجل',
       'settings': 'الإعدادات',
       'login': 'تسجيل الدخول',
-      'signup': 'إنشاء حساب',
+      'signup': 'ليس لديك حساب! إنشاء حساب',
       'logout': 'تسجيل الخروج',
       'code': 'الرمز',
       'waitingForOther': 'في انتظار الطرف الآخر لقبول طلبك...',
       'agreementTitle': 'الاتفاق',
       'confirmTransaction': 'تأكيد المعاملة',
-      'rateUser': 'تقييم المستخدم',
+      'findMatch': 'البحث عن الشخص الاخر',
       'notifications': 'الإشعارات',
       'deposit': 'إيداع',
       'withdraw': 'سحب',
@@ -108,13 +113,18 @@ class AppLocalizations {
       'instapayTransferred': 'تم التحويل عبر إنستاباي',
       'exchangeCompleted': 'تمت عملية التبادل ✅',
       'counterpartyDetails': 'تفاصيل الطرف الآخر',
-      'locationNotShared': 'لم يتم مشاركة موقعهم بعد',
+      'locationNotShared': 'لم يتم مشاركة موقعك ',
       'sharing': 'جارٍ المشاركة...',
       'sendMyLocation': 'أرسل موقعي',
       'male': 'ذكر',
       'female': 'أنثى',
       'phone': 'الهاتف',
       'rating': 'التقييم',
+      'password': 'كلمة المرور',
+      'smsCode': 'رمز الرسالة',
+      'enterSmsCode': 'أدخل رمز التحقق',
+      'cancel': 'إلغاء',
+      'verify': 'تأكيد',
     },
   };
 
@@ -138,7 +148,7 @@ class AppLocalizations {
   String get waitingForOther => _t('waitingForOther');
   String get agreementTitle => _t('agreementTitle');
   String get confirmTransaction => _t('confirmTransaction');
-  String get rateUser => _t('rateUser');
+  String get findMatch => _t('findMatch');
   String get notifications => _t('notifications');
   String get deposit => _t('deposit');
   String get withdraw => _t('withdraw');
@@ -174,6 +184,11 @@ class AppLocalizations {
   String get phone => _t('phone');
   String get rating => _t('rating');
   String get code => _t('code');
+  String get password => _t('password');
+  String get smsCode => _t('smsCode');
+  String get enterSmsCode => _t('enterSmsCode');
+  String get cancel => _t('cancel');
+  String get verify => _t('verify');
 }
 
 class _AppLocalizationsDelegate

@@ -172,7 +172,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                     onPressed: _submit,
                     icon: const Icon(Icons.search),
                     label: Text(
-                      loc.rateUser, // Or add a new key for "Find Match"
+                      loc.findMatch, // Or add a new key for "Find Match"
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(

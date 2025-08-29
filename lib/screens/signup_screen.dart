@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({Key? key}) : super(key: key);
+  const SignupScreen({super.key});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -11,15 +12,15 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _name = '';
   String _countryCode = '+20';
   String _phone = '';
   String _password = '';
-  String _gender = 'Male';
+  String _name = '';
+  String? _gender;
   bool _loading = false;
   String? _error;
-  String? _verificationId;
   final TextEditingController _smsController = TextEditingController();
+  String? _verificationId;
 
   String get _fullPhoneNumber => '$_countryCode${_phone.trim()}';
 
@@ -141,6 +142,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       body: Center(
         child: Card(
@@ -155,22 +157,11 @@ class _SignupScreenState extends State<SignupScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Create Account',
+                    Text('${loc.signup} ${loc.appTitle}',
                         style: Theme.of(context).textTheme.headlineLarge),
                     const SizedBox(height: 16),
                     if (_error != null)
                       Text(_error!, style: const TextStyle(color: Colors.red)),
-
-                    // Name
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: 'Full Name'),
-                      onChanged: (val) => _name = val.trim(),
-                      validator: (val) =>
-                          val != null && val.trim().length >= 3 ? null : 'Enter your name',
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Phone with country code
                     Row(
                       children: [
                         Flexible(
@@ -187,11 +178,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                 DropdownMenuItem(value: '+1', child: Text('+1 🇺🇸')),
                               ],
                               onChanged: (val) => setState(() => _countryCode = val ?? '+20'),
-                              decoration: const InputDecoration(
-                                labelText: 'Code',
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: loc.code,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                                border: const OutlineInputBorder(),
                               ),
                             ),
                           ),
@@ -200,60 +190,91 @@ class _SignupScreenState extends State<SignupScreen> {
                         Flexible(
                           flex: 5,
                           child: TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Phone Number',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: loc.phone,
+                              border: const OutlineInputBorder(),
                             ),
                             keyboardType: TextInputType.phone,
                             onChanged: (val) => _phone = val.trim(),
                             validator: (val) =>
                                 val != null && val.trim().isNotEmpty && val.length >= 8
                                     ? null
-                                    : 'Enter valid number',
+                                    : loc.noTransactions,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-
-                    // Password
                     TextFormField(
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      decoration: InputDecoration(labelText: loc.name),
+                      onChanged: (val) => _name = val,
+                      validator: (val) =>
+                          val != null && val.trim().isNotEmpty
+                              ? null
+                              : loc.noTransactions,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _gender,
+                      items: [
+                        DropdownMenuItem(value: 'Male', child: Text(loc.male)),
+                        DropdownMenuItem(value: 'Female', child: Text(loc.female)),
+                      ],
+                      onChanged: (v) => setState(() => _gender = v),
+                      decoration: InputDecoration(
+                        labelText: loc.gender,
+                        prefixIcon: const Icon(Icons.wc),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      decoration: InputDecoration(labelText: loc.login), // Use a new key for "Password" if needed
                       obscureText: true,
                       onChanged: (val) => _password = val,
                       validator: (val) =>
-                          val != null && val.length >= 6 ? null : 'Password min 6 chars',
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Gender
-                    DropdownButtonFormField<String>(
-                      value: _gender,
-                      items: const [
-                        DropdownMenuItem(value: 'Male', child: Text('Male')),
-                        DropdownMenuItem(value: 'Female', child: Text('Female')),
-                      ],
-                      onChanged: (val) => setState(() => _gender = val ?? 'Male'),
-                      decoration: const InputDecoration(labelText: 'Gender'),
+                          val != null && val.isNotEmpty && val.length >= 6
+                              ? null
+                              : loc.noTransactions,
                     ),
                     const SizedBox(height: 24),
-
-                    // Signup button
                     _loading
                         ? const CircularProgressIndicator()
                         : ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               if (_formKey.currentState!.validate()) {
-                                _startPhoneVerification();
+                                setState(() => _loading = true);
+                                try {
+                                  // Add your signup logic here (Firebase Auth, Firestore, etc.)
+                                  final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                                    email: "${_phone.trim()}@cashlink.app",
+                                    password: _password,
+                                  );
+                                  await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+                                    'name': _name.trim(),
+                                    'gender': _gender,
+                                    'phone': _fullPhoneNumber,
+                                  });
+                                  if (mounted) {
+                                    Navigator.of(context).pushReplacementNamed('/home');
+                                  }
+                                } catch (e) {
+                                  setState(() {
+                                    _error = e.toString();
+                                    _loading = false;
+                                  });
+                                }
                               }
                             },
-                            child: const Text('Sign Up'),
+                            child: Text(loc.signup),
                           ),
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pushReplacementNamed('/auth');
                       },
-                      child: const Text("Already have an account? Login"),
+                      child: Text(loc.login),
                     ),
                   ],
                 ),

@@ -233,7 +233,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                     // Password
                     TextFormField(
-                      decoration: InputDecoration(labelText: loc.login), // Add a new key for "Password"
+                      decoration: InputDecoration(labelText: loc.password), // Add a new key for "Password"
                       obscureText: true,
                       onChanged: (val) => _password = val,
                       validator: (val) =>

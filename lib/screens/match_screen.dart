@@ -246,7 +246,7 @@ class _MatchScreenState extends State<MatchScreen> {
                         ),
                         trailing: ElevatedButton(
                           onPressed: () => _sendExchangeRequest(tx, user.id),
-                          child: Text(loc.confirmTransaction), // Or add a new key for "Exchange Request"
+                          child: Text(loc.exchangeRequestFrom),
                         ),
                       ),
                     );
