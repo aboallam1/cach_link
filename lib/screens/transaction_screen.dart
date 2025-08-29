@@ -17,6 +17,15 @@ class _TransactionScreenState extends State<TransactionScreen> {
   LocationData? _location;
   bool _loading = false;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args['transactionType'] is String) {
+      _type = args['transactionType'];
+    }
+  }
+
   Future<void> _getLocation() async {
     final loc = Location();
     final data = await loc.getLocation();
@@ -123,7 +132,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                       ],
                       onChanged: (v) => setState(() => _type = v),
                       decoration: InputDecoration(
-                        labelText: loc.status, // Or add a new key for "Transaction Type"
+                        labelText: loc.transactionType, // Or add a new key for "Transaction Type"
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

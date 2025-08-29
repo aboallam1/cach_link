@@ -84,7 +84,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 elevation: 6,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).pushNamed('/transaction', arguments: 'deposit'),
+                  onTap: () => Navigator.of(context).pushNamed(
+                    '/transaction',
+                    arguments: {'transactionType': 'Deposit'},
+                  ),
                   child: Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -108,7 +111,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 elevation: 6,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).pushNamed('/transaction', arguments: 'withdraw'),
+                  onTap: () => Navigator.of(context).pushNamed(
+                    '/transaction',
+                    arguments: {'transactionType': 'Withdraw'},
+                  ),
                   child: Center(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,

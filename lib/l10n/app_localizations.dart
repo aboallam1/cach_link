@@ -71,6 +71,7 @@ class AppLocalizations {
       'enterSmsCode': 'Enter SMS Code',
       'cancel': 'Cancel',
       'verify': 'Verify',
+      'transactionType': 'Transaction Type',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -125,6 +126,7 @@ class AppLocalizations {
       'enterSmsCode': 'أدخل رمز التحقق',
       'cancel': 'إلغاء',
       'verify': 'تأكيد',
+      'transactionType': 'نوع المعاملة',
     },
   };
 
@@ -189,6 +191,7 @@ class AppLocalizations {
   String get enterSmsCode => _t('enterSmsCode');
   String get cancel => _t('cancel');
   String get verify => _t('verify');
+  String get transactionType => _t('transactionType');
 }
 
 class _AppLocalizationsDelegate
