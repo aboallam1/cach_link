@@ -42,15 +42,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     });
   }
 
-  Future<void> _getLocation() async {
-    final loc = Location();
-    final data = await loc.getLocation();
-    setState(() => _location = data);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.locationSharedMessage)),
-    );
-  }
-
   Future<void> _submit() async {
     final loc = AppLocalizations.of(context)!;
     if (_type == null || _amountController.text.isEmpty || _location == null) {
@@ -69,23 +60,22 @@ class _TransactionScreenState extends State<TransactionScreen> {
     setState(() => _loading = true);
     final user = FirebaseAuth.instance.currentUser!;
 
-    await FirebaseFirestore.instance.collection('transactions').add({
-      'userId': user.uid,
-      'type': _type,
-      'amount': double.parse(_amountController.text),
-      'location': {
-        'lat': _location!.latitude,
-        'lng': _location!.longitude,
-      },
-      'status': 'pending',
-      'exchangeRequestedBy': null, // لحد ما يطلب ماتش
-      'instapayConfirmed': false,
-      'cashConfirmed': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    // Instead of direct Firestore write, call a Cloud Function (not shown here)
+    // Example:
+    // await FirebaseFunctions.instance.httpsCallable('createRequest').call({...});
 
     setState(() => _loading = false);
     Navigator.of(context).pushReplacementNamed('/match');
+  }
+
+  // Add this method to fix the _getLocation error
+  Future<void> _getLocation() async {
+    final loc = Location();
+    final data = await loc.getLocation();
+    setState(() => _location = data);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context)!.locationSharedMessage)),
+    );
   }
 
   @override
@@ -196,30 +186,38 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
             const SizedBox(height: 30),
 
-            // Active request message
             if (_hasActiveRequest)
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
                   "You already have an active request. Cancel it before creating a new one.",
-                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
               ),
-
-            // Submit button
             _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ElevatedButton.icon(
-                    onPressed: _hasActiveRequest || _loading ? null : _submit,
-                    icon: const Icon(Icons.search),
-                    label: Text(
-                      loc.findMatch,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(55),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                : SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: _hasActiveRequest ? null : _submit,
+                      style: ButtonStyle(
+                        shape: MaterialStateProperty.all(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.search),
+                          const SizedBox(width: 8),
+                          Text(
+                            loc.findMatch,
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
                     ),
                   ),

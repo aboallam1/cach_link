@@ -17,7 +17,7 @@ service cloud.firestore {
       allow create, update, delete: if request.auth.token.firebase.sign_in_provider == "custom" ||
                                     (request.auth.token.email_verified == true && request.auth.token.email.matches('.*@gserviceaccount.com$'));
 
-      // Optionally, allow the owner to cancel their request (status -> cancelled)
+      // Allow the owner to cancel their request (status -> cancelled)
       allow update: if request.auth != null &&
                     request.resource.data.status == "cancelled" &&
                     resource.data.ownerId == request.auth.uid;
