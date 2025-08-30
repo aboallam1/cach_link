@@ -18,6 +18,10 @@ class _MatchScreenState extends State<MatchScreen> {
   Map<String, dynamic>? _myLoc;
   double _myAmount = 0;
   DocumentSnapshot? _myTx;
+  int _searchRadius = 10; // km
+  bool _lockActive = false;
+  DateTime? _lockUntil;
+  bool _noCandidates = false;
 
   @override
   void initState() {
@@ -26,6 +30,10 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _findMatches() async {
+    setState(() {
+      _loading = true;
+      _noCandidates = false;
+    });
     final currentUser = FirebaseAuth.instance.currentUser!;
     final txs = await FirebaseFirestore.instance
         .collection('transactions')
@@ -34,65 +42,100 @@ class _MatchScreenState extends State<MatchScreen> {
         .limit(1)
         .get();
 
-    if (txs.docs.isEmpty) return;
+    if (txs.docs.isEmpty) {
+      setState(() {
+        _matches = [];
+        _loading = false;
+      });
+      return;
+    }
     _myTx = txs.docs.first;
     final myData = _myTx!.data() as Map<String, dynamic>?;
 
-    if (myData == null || !myData.containsKey('type') || !myData.containsKey('amount') || !myData.containsKey('location')) return;
+    if (myData == null || !myData.containsKey('type') || !myData.containsKey('amount') || !myData.containsKey('location')) {
+      setState(() {
+        _matches = [];
+        _loading = false;
+      });
+      return;
+    }
 
     final myType = myData['type'];
     _myAmount = myData['amount'];
     _myLoc = myData['location'];
     final oppType = myType == 'Deposit' ? 'Withdraw' : 'Deposit';
 
-    final candidates = await FirebaseFirestore.instance
+    final candidatesSnap = await FirebaseFirestore.instance
         .collection('transactions')
         .where('type', isEqualTo: oppType)
         .where('status', isEqualTo: 'pending')
         .get();
 
-    List<DocumentSnapshot> matches = [];
-    for (var doc in candidates.docs) {
+    List<DocumentSnapshot> candidates = [];
+    for (var doc in candidatesSnap.docs) {
       final data = doc.data() as Map<String, dynamic>?;
-
-      // ✅ تحقق من الحقول
       if (data == null ||
           !data.containsKey('amount') ||
           !data.containsKey('location') ||
           !data.containsKey('userId')) continue;
-
-      // ✅ تجاهل معاملات نفس المستخدم
       if (data['userId'] == currentUser.uid) continue;
 
-      final amt = data['amount'];
-      if ((amt - _myAmount).abs() / _myAmount <= 0.1) {
-        final loc = data['location'];
-        final d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
-        if (d < 50.0) {
-          matches.add(doc);
-        }
+      final loc = data['location'];
+      final d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+      if (d <= _searchRadius) {
+        candidates.add(doc);
       }
     }
 
-    matches.sort((a, b) {
-      final aData = a.data() as Map<String, dynamic>;
-      final bData = b.data() as Map<String, dynamic>;
-      if (_filterType == "distance") {
-        final da = _distance(_myLoc!['lat'], _myLoc!['lng'], aData['location']['lat'], aData['location']['lng']);
-        final db = _distance(_myLoc!['lat'], _myLoc!['lng'], bData['location']['lat'], bData['location']['lng']);
-        return da.compareTo(db);
-      } else {
-        final da = (aData['amount'] - _myAmount).abs();
-        final db = (bData['amount'] - _myAmount).abs();
-        return da.compareTo(db);
+    // Find closest by GPS
+    DocumentSnapshot? closestByGps;
+    double minDist = double.infinity;
+    for (var doc in candidates) {
+      final data = doc.data() as Map<String, dynamic>;
+      final loc = data['location'];
+      final d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+      if (d < minDist) {
+        minDist = d;
+        closestByGps = doc;
       }
-    });
+    }
 
-    if (!mounted) return;
+    // Find closest by amount
+    DocumentSnapshot? closestByAmount;
+    double minAmountDiff = double.infinity;
+    for (var doc in candidates) {
+      final data = doc.data() as Map<String, dynamic>;
+      final amt = data['amount'];
+      final diff = (amt - _myAmount).abs();
+      if (diff < minAmountDiff) {
+        minAmountDiff = diff;
+        closestByAmount = doc;
+      }
+    }
+
+    // If both are the same, suggest only one
+    List<DocumentSnapshot> matches = [];
+    if (closestByGps != null && closestByGps.id == closestByAmount?.id) {
+      matches = [closestByGps];
+    } else {
+      if (closestByGps != null) matches.add(closestByGps);
+      if (closestByAmount != null && closestByAmount.id != closestByGps?.id) matches.add(closestByAmount);
+    }
+
     setState(() {
       _matches = matches;
       _loading = false;
+      _noCandidates = matches.isEmpty;
     });
+  }
+
+  Future<void> _expandSearch() async {
+    if (_searchRadius < 50) {
+      setState(() {
+        _searchRadius += 10;
+      });
+      await _findMatches();
+    }
   }
 
   double _distance(lat1, lon1, lat2, lon2) {
@@ -104,8 +147,15 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _sendExchangeRequest(DocumentSnapshot otherTx, String otherUserId) async {
+    if (_lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!)) return;
     if (_myTx == null) return;
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+    // Lock sender for 60s
+    setState(() {
+      _lockActive = true;
+      _lockUntil = DateTime.now().add(const Duration(seconds: 60));
+    });
 
     final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
     final otherRef = FirebaseFirestore.instance.collection('transactions').doc(otherTx.id);
@@ -115,11 +165,13 @@ class _MatchScreenState extends State<MatchScreen> {
       'status': 'requested',
       'partnerTxId': otherTx.id,
       'exchangeRequestedBy': currentUserId,
+      'lockUntil': Timestamp.fromDate(_lockUntil!),
     });
     batch.update(otherRef, {
       'status': 'requested',
       'partnerTxId': _myTx!.id,
       'exchangeRequestedBy': currentUserId,
+      'lockUntil': Timestamp.fromDate(_lockUntil!),
     });
 
     await batch.commit();
@@ -144,6 +196,11 @@ class _MatchScreenState extends State<MatchScreen> {
       });
     } else {
       await txRef.update({'status': 'rejected'});
+      // Unlock sender immediately
+      setState(() {
+        _lockActive = false;
+        _lockUntil = null;
+      });
     }
   }
 
@@ -157,10 +214,9 @@ class _MatchScreenState extends State<MatchScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(loc.Matches)), // Use a new key if you want "Matches"
+      appBar: AppBar(title: Text(loc.Matches)),
       body: Column(
         children: [
-          // Filter
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: DropdownButtonFormField<String>(
@@ -172,11 +228,11 @@ class _MatchScreenState extends State<MatchScreen> {
               items: [
                 DropdownMenuItem(
                   value: "distance",
-                  child: Text(loc.distance), // Or add a new key for "Closest Distance"
+                  child: Text(loc.distance),
                 ),
                 DropdownMenuItem(
                   value: "amount",
-                  child: Text(loc.amount), // Or add a new key for "Closest Amount"
+                  child: Text(loc.amount),
                 ),
               ],
               onChanged: (val) {
@@ -187,74 +243,127 @@ class _MatchScreenState extends State<MatchScreen> {
               },
             ),
           ),
+          if (_noCandidates)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    _searchRadius < 50
+                        ? "No users found in $_searchRadius km."
+                        : "Sorry, no users available at the moment.",
+                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  ),
+                  if (_searchRadius < 50)
+                    ElevatedButton(
+                      onPressed: _expandSearch,
+                      child: Text("Expand Search (+10km)"),
+                    ),
+                ],
+              ),
+            ),
+          if (!_noCandidates)
+            Expanded(
+              child: ListView.builder(
+                itemCount: _matches.length > 2 ? 2 : _matches.length,
+                itemBuilder: (ctx, i) {
+                  final tx = _matches[i];
+                  final txData = tx.data() as Map<String, dynamic>?;
 
-          Expanded(
-            child: ListView.builder(
-              itemCount: _matches.length,
-              itemBuilder: (ctx, i) {
-                final tx = _matches[i];
-                final txData = tx.data() as Map<String, dynamic>?;
+                  if (txData == null || !txData.containsKey('userId')) {
+                    return ListTile(title: Text(loc.noTransactions));
+                  }
 
-                if (txData == null || !txData.containsKey('userId')) {
-                  return ListTile(title: Text(loc.noTransactions));
-                }
+                  return FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance.collection('users').doc(txData['userId']).get(),
+                    builder: (ctx, snap) {
+                      if (!snap.hasData) return ListTile(title: Text(loc.waitingForOther));
+                      final user = snap.data!;
+                      final locData = txData['location'];
+                      final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
 
-                return FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance.collection('users').doc(txData['userId']).get(),
-                  builder: (ctx, snap) {
-                    if (!snap.hasData) return ListTile(title: Text(loc.waitingForOther));
-                    final user = snap.data!;
-                    final locData = txData['location'];
-                    final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
+                      // If there is an exchange request from the other party
+                      if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
+                        return Card(
+                          child: ListTile(
+                            title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
+                            subtitle: Text(
+                              '${loc.requested}\n'
+                              '${loc.amount}: ${txData['amount']} | '
+                              '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
+                              'Rating: ${user['rating']}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.check, color: Colors.green),
+                                  onPressed: () => _respondToRequest(tx, true),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.red),
+                                  onPressed: () => _respondToRequest(tx, false),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
 
-                    // If there is an exchange request from the other party
-                    if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
+                      // Normal cards (can send Exchange Request)
                       return Card(
                         child: ListTile(
                           title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
                           subtitle: Text(
-                            '${loc.requested}\n'
                             '${loc.amount}: ${txData['amount']} | '
                             '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
-                            'Rating: ${user['rating']}',
+                            '${loc.rating}: ${user['rating']}',
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.check, color: Colors.green),
-                                onPressed: () => _respondToRequest(tx, true),
+                              ElevatedButton(
+                                onPressed: _lockActive &&
+                                        _lockUntil != null &&
+                                        DateTime.now().isBefore(_lockUntil!)
+                                    ? null
+                                    : () => _sendExchangeRequest(tx, user.id),
+                                child: Text(_lockActive &&
+                                        _lockUntil != null &&
+                                        DateTime.now().isBefore(_lockUntil!)
+                                    ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)"
+                                    : "Send Request"),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.red),
-                                onPressed: () => _respondToRequest(tx, false),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: _lockActive &&
+                                        _lockUntil != null &&
+                                        DateTime.now().isBefore(_lockUntil!)
+                                    ? null
+                                    : () {
+                                        // Cancel logic: set status to cancelled
+                                        if (_myTx != null) {
+                                          FirebaseFirestore.instance
+                                              .collection('transactions')
+                                              .doc(_myTx!.id)
+                                              .update({'status': 'cancelled'});
+                                          setState(() {
+                                            _lockActive = false;
+                                            _lockUntil = null;
+                                          });
+                                        }
+                                      },
+                                child: const Text("Cancel Request"),
                               ),
                             ],
                           ),
                         ),
                       );
-                    }
-
-                    // Normal cards (can send Exchange Request)
-                    return Card(
-                      child: ListTile(
-                        title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
-                        subtitle: Text(
-                          '${loc.amount}: ${txData['amount']} | '
-                          '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
-                          '${loc.rating}: ${user['rating']}',
-                        ),
-                        trailing: ElevatedButton(
-                          onPressed: () => _sendExchangeRequest(tx, user.id),
-                          child: Text(loc.exchangeRequestFrom),
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+                    },
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );

@@ -16,6 +16,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   final _amountController = TextEditingController();
   LocationData? _location;
   bool _loading = false;
+  bool _hasActiveRequest = false;
 
   @override
   void didChangeDependencies() {
@@ -24,6 +25,21 @@ class _TransactionScreenState extends State<TransactionScreen> {
     if (args is Map && args['transactionType'] is String) {
       _type = args['transactionType'];
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkActiveRequest();
+  }
+
+  Future<void> _checkActiveRequest() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    setState(() {
+      _hasActiveRequest = userDoc.data()?['hasActiveRequest'] == true;
+    });
   }
 
   Future<void> _getLocation() async {
@@ -39,7 +55,13 @@ class _TransactionScreenState extends State<TransactionScreen> {
     final loc = AppLocalizations.of(context)!;
     if (_type == null || _amountController.text.isEmpty || _location == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.noTransactions)), // Or add a new key for "Please fill all fields"
+        SnackBar(content: Text(loc.noTransactions)),
+      );
+      return;
+    }
+    if (_hasActiveRequest) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("You already have an active request. Cancel it first.")),
       );
       return;
     }
@@ -74,7 +96,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text(loc.NewTransaction), // Use getter, not property with space
+        title: Text(loc.NewTransaction),
         elevation: 0,
         centerTitle: true,
       ),
@@ -85,7 +107,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
           children: [
             // Header
             Text(
-              loc.CreateTransaction, // Use getter, not property with space
+              loc.CreateTransaction,
               style: theme.textTheme.headlineSmall!.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -132,7 +154,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                       ],
                       onChanged: (v) => setState(() => _type = v),
                       decoration: InputDecoration(
-                        labelText: loc.transactionType, // Or add a new key for "Transaction Type"
+                        labelText: loc.transactionType,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -174,14 +196,24 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
             const SizedBox(height: 30),
 
+            // Active request message
+            if (_hasActiveRequest)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  "You already have an active request. Cancel it before creating a new one.",
+                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+              ),
+
             // Submit button
             _loading
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton.icon(
-                    onPressed: _submit,
+                    onPressed: _hasActiveRequest || _loading ? null : _submit,
                     icon: const Icon(Icons.search),
                     label: Text(
-                      loc.findMatch, // Or add a new key for "Find Match"
+                      loc.findMatch,
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(

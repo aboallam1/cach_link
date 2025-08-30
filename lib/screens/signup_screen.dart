@@ -231,7 +231,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      decoration: InputDecoration(labelText: loc.login), // Use a new key for "Password" if needed
+                      decoration: InputDecoration(labelText: loc.password),
                       obscureText: true,
                       onChanged: (val) => _password = val,
                       validator: (val) =>

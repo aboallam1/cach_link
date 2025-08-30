@@ -17,6 +17,7 @@ import 'screens/signup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'widgets/request_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,81 +44,83 @@ class MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CashLink',
-      debugShowCheckedModeBanner: false,
-      locale: _locale,
-      supportedLocales: AppLocalizations.supportedLocales,
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      theme: ThemeData(
-        scaffoldBackgroundColor: Colors.white,
-        primaryColor: Colors.white,
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.grey,
-        ).copyWith(
-          secondary: Colors.red,
-        ),
-        fontFamily: 'SansSerif',
-        textTheme: const TextTheme(
-          headlineLarge: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            fontFamily: 'SansSerif',
+    return RequestBanner(
+      child: MaterialApp(
+        title: 'CashLink',
+        debugShowCheckedModeBanner: false,
+        locale: _locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: ThemeData(
+          scaffoldBackgroundColor: Colors.white,
+          primaryColor: Colors.white,
+          colorScheme: ColorScheme.fromSwatch(
+            primarySwatch: Colors.grey,
+          ).copyWith(
+            secondary: Colors.red,
           ),
-          titleMedium: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-            fontFamily: 'SansSerif',
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 16,
-            color: Colors.black87,
-            fontFamily: 'SansSerif',
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            textStyle: const TextStyle(
+          fontFamily: 'SansSerif',
+          textTheme: const TextTheme(
+            headlineLarge: TextStyle(
+              fontSize: 32,
               fontWeight: FontWeight.bold,
+              color: Colors.black87,
+              fontFamily: 'SansSerif',
+            ),
+            titleMedium: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              fontFamily: 'SansSerif',
+            ),
+            bodyMedium: TextStyle(
               fontSize: 16,
+              color: Colors.black87,
               fontFamily: 'SansSerif',
             ),
           ),
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.red),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontFamily: 'SansSerif',
+              ),
+            ),
+          ),
+          inputDecorationTheme: const InputDecorationTheme(
+            border: OutlineInputBorder(),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.red),
+            ),
           ),
         ),
+        initialRoute: '/',
+        routes: {
+          '/': (_) => const SplashScreen(),
+          '/auth': (_) => const AuthScreen(),
+          '/signup': (_) => const SignupScreen(),
+          '/profile': (_) => const ProfileScreen(),
+          '/home': (_) => const HomeScreen(),
+          '/transaction': (_) => const TransactionScreen(),
+          '/match': (_) => const MatchScreen(),
+          '/agreement': (_) => const AgreementScreen(),
+          '/rating': (_) => const RatingScreen(),
+          '/settings': (_) => const SettingsScreen(),
+          '/history': (_) => const HistoryScreen(),
+          '/notifications': (_) => const NotificationsScreen(),
+        },
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (_) => const SplashScreen(),
-        '/auth': (_) => const AuthScreen(),
-        '/signup': (_) => const SignupScreen(),
-        '/profile': (_) => const ProfileScreen(),
-        '/home': (_) => const HomeScreen(),
-        '/transaction': (_) => const TransactionScreen(),
-        '/match': (_) => const MatchScreen(),
-        '/agreement': (_) => const AgreementScreen(),
-        '/rating': (_) => const RatingScreen(),
-        '/settings': (_) => const SettingsScreen(),
-        '/history': (_) => const HistoryScreen(),
-        '/notifications': (_) => const NotificationsScreen(),
-      },
     );
   }
 }
