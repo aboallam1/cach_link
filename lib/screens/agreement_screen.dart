@@ -314,21 +314,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            if (_showCancel && (status == 'requested' || status == 'pending'))
-                              Center(
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  icon: const Icon(Icons.cancel),
-                                  label: const Text("Cancel Request"),
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _cancelTransaction(myTxId, otherTxId),
-                                ),
-                              ),
                             const SizedBox(height: 16),
                             Card(
                               color: Colors.red[50],
@@ -545,6 +530,21 @@ class _AgreementScreenState extends State<AgreementScreen> {
   Future<bool> _onWillPop() async {
     // Prevent leaving unless cancelled, accepted, or timeout
     return _canLeave;
+  }
+
+  // Define the cancel transaction method
+  Future<void> _cancelTransaction(String myTxId, String otherTxId) async {
+    setState(() => _busy = true);
+    await _setBothTxFields(
+      myTxId: myTxId,
+      otherTxId: otherTxId,
+      data: {
+        'status': 'cancelled',
+        'cancelledAt': FieldValue.serverTimestamp(),
+      },
+    );
+    setState(() => _busy = false);
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 }
 

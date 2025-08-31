@@ -23,10 +23,28 @@ class _MatchScreenState extends State<MatchScreen> {
   DateTime? _lockUntil;
   bool _noCandidates = false;
 
+  // Replace all _type, _amountController, _location with public fields or pass them as arguments.
+  // Add these fields at the top of your _MatchScreenState if you want to access the last transaction request:
+  String? lastType;
+  String? lastAmount;
+  Map<String, dynamic>? lastLocation;
+
   @override
   void initState() {
     super.initState();
     _findMatches();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map?;
+    if (args != null) {
+      lastType = args['type'] as String?;
+      lastAmount = args['amount'] as String?;
+      lastLocation = args['location'] as Map<String, dynamic>?;
+    }
+    // ...existing code...
   }
 
   Future<void> _findMatches() async {
@@ -377,23 +395,32 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // Add this method to save the transaction as pending if not already saved
+  // Update _savePendingRequestIfNeeded to use these fields:
   Future<void> _savePendingRequestIfNeeded() async {
-    if (_myTx == null) return;
-    final myData = _myTx!.data() as Map<String, dynamic>?;
-    if (myData == null || myData['status'] == 'pending') return; // Already pending
+    final user = FirebaseAuth.instance.currentUser!;
+    final txSnap = await FirebaseFirestore.instance
+        .collection('transactions')
+        .where('userId', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .limit(1)
+        .get();
 
-    await FirebaseFirestore.instance.collection('transactions').add({
-      'userId': myData['userId'],
-      'type': myData['type'],
-      'amount': myData['amount'],
-      'location': myData['location'],
-      'status': 'pending',
-      'exchangeRequestedBy': null,
-      'instapayConfirmed': false,
-      'cashConfirmed': false,
-      'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
-    });
+    if (txSnap.docs.isEmpty && lastType != null && lastAmount != null && lastLocation != null) {
+      await FirebaseFirestore.instance.collection('transactions').add({
+        'userId': user.uid,
+        'type': lastType,
+        'amount': double.parse(lastAmount!),
+        'location': {
+          'lat': lastLocation!['lat'],
+          'lng': lastLocation!['lng'],
+        },
+        'status': 'pending',
+        'exchangeRequestedBy': null,
+        'instapayConfirmed': false,
+        'cashConfirmed': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
+      });
+    }
   }
 }

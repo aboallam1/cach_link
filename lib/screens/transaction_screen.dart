@@ -86,6 +86,13 @@ class _TransactionScreenState extends State<TransactionScreen> {
     return found;
   }
 
+  @override
+  void dispose() {
+    // Clean up controllers and prevent setState after dispose
+    _amountController.dispose();
+    super.dispose();
+  }
+
   Future<void> searchAndShowCandidates() async {
     final user = FirebaseAuth.instance.currentUser!;
     final amount = double.parse(_amountController.text);
@@ -127,6 +134,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
       if (closestByAmount != null && closestByAmount.id != closestByGps?.id) matches.add(closestByAmount);
     }
 
+    if (!mounted) return;
     setState(() {
       candidates = matches;
       _loading = false;
@@ -134,41 +142,60 @@ class _TransactionScreenState extends State<TransactionScreen> {
       noCandidates = matches.isEmpty;
     });
 
-    // Fix: Always navigate to match page if there are candidates
     if (matches.isNotEmpty) {
       if (!mounted) return;
-      // Use pushNamed instead of pushReplacementNamed to allow back navigation if needed
-      Navigator.of(context).pushNamed('/match');
+      Navigator.of(context).pushNamed('/match', arguments: {
+        'type': _type,
+        'amount': _amountController.text,
+        'location': {
+          'lat': _location!.latitude,
+          'lng': _location!.longitude,
+        },
+      });
     } else {
       if (searchRadius >= 50) {
-        await FirebaseFirestore.instance.collection('transactions').add({
-          'userId': user.uid,
-          'type': _type,
-          'amount': amount,
-          'location': {
-            'lat': _location!.latitude,
-            'lng': _location!.longitude,
-          },
-          'status': 'pending',
-          'exchangeRequestedBy': null,
-          'instapayConfirmed': false,
-          'cashConfirmed': false,
-          'createdAt': FieldValue.serverTimestamp(),
-          'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
-        });
         if (!mounted) return;
         showDialog(
           context: context,
+          barrierDismissible: false,
           builder: (_) => AlertDialog(
             title: Text(AppLocalizations.of(context)!.findMatch),
-            content: Text("Sorry, no users available at the moment, Your request is saved, we’ll notify you when someone is available"),
+            content: const Text("Sorry, no users available at the moment."),
             actions: [
               TextButton(
                 onPressed: () {
+                  if (!mounted) return;
                   Navigator.of(context).pop();
                   Navigator.of(context).pushReplacementNamed('/home');
                 },
-                child: const Text("OK"),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final user = FirebaseAuth.instance.currentUser!;
+                  await FirebaseFirestore.instance.collection('transactions').add({
+                    'userId': user.uid,
+                    'type': _type,
+                    'amount': amount,
+                    'location': {
+                      'lat': _location!.latitude,
+                      'lng': _location!.longitude,
+                    },
+                    'status': 'pending',
+                    'exchangeRequestedBy': null,
+                    'instapayConfirmed': false,
+                    'cashConfirmed': false,
+                    'createdAt': FieldValue.serverTimestamp(),
+                    'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
+                  });
+                  if (!mounted) return;
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Your request was saved and will appear in your history.")),
+                  );
+                  Navigator.of(context).pushReplacementNamed('/history');
+                },
+                child: const Text("Save Transaction"),
               ),
             ],
           ),
