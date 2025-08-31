@@ -14,6 +14,49 @@ class AgreementScreen extends StatefulWidget {
 class _AgreementScreenState extends State<AgreementScreen> {
   bool _busy = false;
   bool _sharingLocation = false;
+  int _remainingSeconds = 60;
+  late final Stopwatch _stopwatch;
+  late final Ticker _ticker;
+  bool _canLeave = false;
+  bool _showCancel = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _stopwatch = Stopwatch()..start();
+    _ticker = Ticker(_onTick)..start();
+  }
+
+  void _onTick(Duration elapsed) {
+    if (!mounted) return;
+    setState(() {
+      _remainingSeconds = 60 - elapsed.inSeconds;
+      if (_remainingSeconds <= 0) {
+        _remainingSeconds = 0;
+        _showCancel = false;
+        _canLeave = true;
+        _ticker.stop();
+        // Optionally: auto-cancel transaction here if not accepted
+      }
+    });
+  }
+
+  Future<void> _cancelTransaction(String myTxId, String otherTxId) async {
+    setState(() => _busy = true);
+    await _setBothTxFields(
+      myTxId: myTxId,
+      otherTxId: otherTxId,
+      data: {
+        'status': 'cancelled',
+        'cancelledAt': FieldValue.serverTimestamp(),
+      },
+    );
+    setState(() {
+      _busy = false;
+      _canLeave = true;
+    });
+    if (mounted) Navigator.of(context).pop();
+  }
 
   Future<void> _setBothTxFields({
     required String myTxId,
@@ -161,7 +204,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
 
     if (myTxId == null) {
       return Scaffold(
-          body: Center(child: Text(loc.noTransactions))); // Use a suitable key
+          body: Center(child: Text(loc.noTransactions)));
     }
 
     final myTxStream = FirebaseFirestore.instance
@@ -169,178 +212,227 @@ class _AgreementScreenState extends State<AgreementScreen> {
         .doc(myTxId)
         .snapshots();
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: myTxStream,
-      builder: (context, mySnap) {
-        if (!mySnap.hasData) {
-          return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
-        }
-        final myDoc = mySnap.data!;
-        if (!myDoc.exists) {
-          return Scaffold(
-              body: Center(child: Text(loc.noTransactions))); // Use a suitable key
-        }
-        final myData = myDoc.data() as Map<String, dynamic>;
-        final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: StreamBuilder<DocumentSnapshot>(
+        stream: myTxStream,
+        builder: (context, mySnap) {
+          if (!mySnap.hasData) {
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
+          }
+          final myDoc = mySnap.data!;
+          if (!myDoc.exists) {
+            return Scaffold(
+                body: Center(child: Text(loc.noTransactions)));
+          }
+          final myData = myDoc.data() as Map<String, dynamic>;
+          final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-        final otherTxId = otherTxIdArg ?? (myData['partnerTxId'] as String?);
-        if (otherTxId == null) {
-          return Scaffold(
-              body: Center(
-                  child: Text(loc.noTransactions))); // Use a suitable key
-        }
+          final otherTxId = otherTxIdArg ?? (myData['partnerTxId'] as String?);
+          if (otherTxId == null) {
+            return Scaffold(
+                body: Center(child: Text(loc.noTransactions)));
+          }
 
-        final iAmRequester = (myData['exchangeRequestedBy'] == currentUserId);
-        final myType = (myData['type'] as String?) ?? '';
-        final iAmDeposit = myType == 'Deposit';
-        final status = (myData['status'] as String?) ?? 'pending';
+          final iAmRequester = (myData['exchangeRequestedBy'] == currentUserId);
+          final myType = (myData['type'] as String?) ?? '';
+          final iAmDeposit = myType == 'Deposit';
+          final status = (myData['status'] as String?) ?? 'pending';
 
-        return StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('transactions')
-              .doc(otherTxId)
-              .snapshots(),
-          builder: (context, otherTxSnap) {
-            if (!otherTxSnap.hasData) {
-              return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()));
-            }
-            final otherTxDoc = otherTxSnap.data!;
-            final otherTxData =
-                otherTxDoc.data() as Map<String, dynamic>?;
+          // If accepted, allow leaving and show details
+          if (status == 'accepted' || status == 'completed') {
+            _canLeave = true;
+            _ticker.stop();
+          }
 
-            if (otherTxData == null) {
-              return Scaffold(
-                  body: Center(child: Text(loc.noTransactions)));
-            }
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('transactions')
+                .doc(otherTxId)
+                .snapshots(),
+            builder: (context, otherTxSnap) {
+              if (!otherTxSnap.hasData) {
+                return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()));
+              }
+              final otherTxDoc = otherTxSnap.data!;
+              final otherTxData =
+                  otherTxDoc.data() as Map<String, dynamic>?;
 
-            final otherUserId = otherTxData['userId'] as String;
-            final otherSharedLocation =
-                otherTxData['sharedLocation'] as Map<String, dynamic>?;
-
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(otherUserId)
-                  .get(),
-              builder: (context, otherUserSnap) {
-                if (!otherUserSnap.hasData) {
-                  return const Scaffold(
-                      body: Center(child: CircularProgressIndicator()));
-                }
-                final otherUserDoc = otherUserSnap.data!;
-                final otherUser =
-                    otherUserDoc.data() as Map<String, dynamic>? ?? {};
-
+              if (otherTxData == null) {
                 return Scaffold(
-                  appBar: AppBar(
-                    title: Text(loc.agreementTitle),
-                    backgroundColor: Colors.blueGrey[800],
-                  ),
-                  body: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.blueGrey.shade50, Colors.white],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
+                    body: Center(child: Text(loc.noTransactions)));
+              }
+
+              final otherUserId = otherTxData['userId'] as String;
+              final otherSharedLocation =
+                  otherTxData['sharedLocation'] as Map<String, dynamic>?;
+
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(otherUserId)
+                    .get(),
+                builder: (context, otherUserSnap) {
+                  if (!otherUserSnap.hasData) {
+                    return const Scaffold(
+                        body: Center(child: CircularProgressIndicator()));
+                  }
+                  final otherUserDoc = otherUserSnap.data!;
+                  final otherUser =
+                      otherUserDoc.data() as Map<String, dynamic>? ?? {};
+
+                  return Scaffold(
+                    appBar: AppBar(
+                      title: Text(loc.agreementTitle),
+                      backgroundColor: Colors.blueGrey[800],
+                      automaticallyImplyLeading: false,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Card(
-                            color: Colors.red[50],
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.warning,
-                                      color: Colors.red, size: 28),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      loc.meetingWarning, // Add this key to your localization file
-                                      style: const TextStyle(
-                                          color: Colors.red,
-                                          fontWeight: FontWeight.w600),
-                                    ),
+                    body: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.blueGrey.shade50, Colors.white],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Professional timer bar
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: LinearProgressIndicator(
+                                    value: _remainingSeconds / 60,
+                                    backgroundColor: Colors.grey[300],
+                                    color: _remainingSeconds > 10 ? Colors.green : Colors.red,
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          if (status == 'requested' && iAmRequester) ...[
-                            _infoCard(
-                              icon: Icons.hourglass_top,
-                              title: loc.waitingForOther,
-                              subtitle:
-                                  '${loc.name}: ${otherUser['name'] ?? 'Unknown'}',
-                            ),
-                          ] else if (status == 'requested' &&
-                              !iAmRequester) ...[
-                            _actionCard(
-                              name: otherUser['name'] ?? 'Unknown',
-                              onAccept: () =>
-                                  _acceptRequest(myTxId, otherTxId),
-                              onDecline: () =>
-                                  _declineRequest(myTxId, otherTxId),
-                              busy: _busy,
-                              loc: loc,
-                            ),
-                          ],
-
-                          if (status == 'accepted' || status == 'completed')
-                            _detailsCard(otherUser, otherSharedLocation, loc),
-
-                          const Spacer(),
-                          if (status == 'accepted')
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(48),
-                                backgroundColor: Colors.green[700],
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                              ),
-                              icon: const Icon(Icons.check_circle),
-                              onPressed: _busy
-                                  ? null
-                                  : () => _confirmStep(
-                                        myTxId: myTxId,
-                                        otherTxId: otherTxId,
-                                        iAmDeposit: iAmDeposit,
-                                      ),
-                              label: Text(iAmDeposit
-                                  ? loc.instapayTransferred
-                                  : loc.cashReceived),
-                            ),
-                          if (status == 'completed')
-                            Center(
-                              child: Text(
-                                loc.exchangeCompleted,
-                                style: const TextStyle(
-                                    fontSize: 18,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  "${_remainingSeconds}s",
+                                  style: TextStyle(
+                                    color: _remainingSeconds > 10 ? Colors.black : Colors.red,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.green),
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (_showCancel && (status == 'requested' || status == 'pending'))
+                              Center(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.cancel),
+                                  label: const Text("Cancel Request"),
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _cancelTransaction(myTxId, otherTxId),
+                                ),
                               ),
-                            )
-                        ],
+                            const SizedBox(height: 16),
+                            Card(
+                              color: Colors.red[50],
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.warning,
+                                        color: Colors.red, size: 28),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        loc.meetingWarning,
+                                        style: const TextStyle(
+                                            color: Colors.red,
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Show details if accepted (for receiver)
+                            if (status == 'accepted' || status == 'completed')
+                              _detailsCard(otherUser, otherSharedLocation, loc),
+
+                            // Show waiting/accept/reject UI if not accepted
+                            if (status == 'requested' && iAmRequester) ...[
+                              _infoCard(
+                                icon: Icons.hourglass_top,
+                                title: loc.waitingForOther,
+                                subtitle:
+                                    '${loc.name}: ${otherUser['name'] ?? 'Unknown'}',
+                              ),
+                            ] else if (status == 'requested' &&
+                                !iAmRequester) ...[
+                              _actionCard(
+                                name: otherUser['name'] ?? 'Unknown',
+                                onAccept: () =>
+                                    _acceptRequest(myTxId, otherTxId),
+                                onDecline: () =>
+                                    _declineRequest(myTxId, otherTxId),
+                                busy: _busy,
+                                loc: loc,
+                              ),
+                            ],
+
+                            const Spacer(),
+                            if (status == 'accepted')
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(48),
+                                  backgroundColor: Colors.green[700],
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                ),
+                                icon: const Icon(Icons.check_circle),
+                                onPressed: _busy
+                                    ? null
+                                    : () => _confirmStep(
+                                          myTxId: myTxId,
+                                          otherTxId: otherTxId,
+                                          iAmDeposit: iAmDeposit,
+                                        ),
+                                label: Text(iAmDeposit
+                                    ? loc.instapayTransferred
+                                    : loc.cashReceived),
+                              ),
+                            if (status == 'completed')
+                              Center(
+                                child: Text(
+                                  loc.exchangeCompleted,
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green),
+                                ),
+                              )
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -438,5 +530,43 @@ class _AgreementScreenState extends State<AgreementScreen> {
         ),
       ),
     );
+  }
+
+  // Add this method to fix the error
+  Future<bool> _onWillPop() async {
+    // Prevent leaving unless cancelled, accepted, or timeout
+    return _canLeave;
+  }
+}
+
+// Helper ticker for countdown
+class Ticker {
+  final void Function(Duration) onTick;
+  bool _running = false;
+  Ticker(this.onTick);
+
+  void start() {
+    if (_running) return;
+    _running = true;
+    _tick();
+  }
+
+  void stop() {
+    _running = false;
+  }
+
+  void _tick() async {
+    Duration elapsed = Duration.zero;
+    while (_running && elapsed.inSeconds < 61) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (_running) {
+        elapsed += const Duration(seconds: 1);
+        onTick(elapsed);
+      }
+    }
+  }
+
+  void dispose() {
+    _running = false;
   }
 }
