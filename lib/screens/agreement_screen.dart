@@ -46,28 +46,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
       }
     });
   }
-
-  Future<void> _cancelTransaction(String myTxId, String otherTxId) async {
-    setState(() => _busy = true);
-    await _setBothTxFields(
-      myTxId: myTxId,
-      otherTxId: otherTxId,
-      data: {
-        'status': 'cancelled',
-        'cancelledAt': FieldValue.serverTimestamp(),
-      },
-    );
-    setState(() {
-      _busy = false;
-      _canLeave = true;
-    });
-    // After cancel, go to match page
-    if (mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-      Navigator.of(context).pushReplacementNamed('/match');
-    }
-  }
-
+  
   Future<void> _setBothTxFields({
     required String myTxId,
     required String otherTxId,

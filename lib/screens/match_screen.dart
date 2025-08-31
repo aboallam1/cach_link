@@ -251,13 +251,21 @@ class _MatchScreenState extends State<MatchScreen> {
                   Text(
                     _searchRadius < 50
                         ? "No users found in $_searchRadius km."
-                        : "Sorry, no users available at the moment.",
+                        : "Sorry, no users available at the moment, your request was saved",
                     style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   ),
                   if (_searchRadius < 50)
                     ElevatedButton(
                       onPressed: _expandSearch,
                       child: Text("Expand Search (+10km)"),
+                    ),
+                  if (_searchRadius >= 50)
+                    FutureBuilder(
+                      future: _savePendingRequestIfNeeded(),
+                      builder: (context, snapshot) {
+                        // Only side effect, no UI needed
+                        return const SizedBox.shrink();
+                      },
                     ),
                 ],
               ),
@@ -367,5 +375,25 @@ class _MatchScreenState extends State<MatchScreen> {
         ],
       ),
     );
+  }
+
+  // Add this method to save the transaction as pending if not already saved
+  Future<void> _savePendingRequestIfNeeded() async {
+    if (_myTx == null) return;
+    final myData = _myTx!.data() as Map<String, dynamic>?;
+    if (myData == null || myData['status'] == 'pending') return; // Already pending
+
+    await FirebaseFirestore.instance.collection('transactions').add({
+      'userId': myData['userId'],
+      'type': myData['type'],
+      'amount': myData['amount'],
+      'location': myData['location'],
+      'status': 'pending',
+      'exchangeRequestedBy': null,
+      'instapayConfirmed': false,
+      'cashConfirmed': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
+    });
   }
 }
