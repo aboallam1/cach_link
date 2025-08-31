@@ -36,7 +36,13 @@ class _AgreementScreenState extends State<AgreementScreen> {
         _showCancel = false;
         _canLeave = true;
         _ticker.stop();
-        // Optionally: auto-cancel transaction here if not accepted
+        // On timeout: leave to match page
+        Future.microtask(() {
+          if (mounted) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            Navigator.of(context).pushReplacementNamed('/match');
+          }
+        });
       }
     });
   }
@@ -55,7 +61,11 @@ class _AgreementScreenState extends State<AgreementScreen> {
       _busy = false;
       _canLeave = true;
     });
-    if (mounted) Navigator.of(context).pop();
+    // After cancel, go to match page
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.of(context).pushReplacementNamed('/match');
+    }
   }
 
   Future<void> _setBothTxFields({
@@ -392,6 +402,26 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             ],
 
                             const Spacer(),
+                            // Add cancel button at the bottom always
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    minimumSize: const Size.fromHeight(48),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.cancel),
+                                  label: const Text("Cancel Request"),
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _cancelTransaction(myTxId, otherTxId),
+                                ),
+                              ),
+                            ),
                             if (status == 'accepted')
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
