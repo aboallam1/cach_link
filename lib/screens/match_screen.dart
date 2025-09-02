@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:cashlink/l10n/app_localizations.dart';
+import 'dart:async';
 
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
@@ -24,6 +25,8 @@ class _MatchScreenState extends State<MatchScreen> {
   bool _noCandidates = false;
   bool _canLeave = false; // Add this flag
   bool _showSaveButton = false; // Add this flag
+  Timer? _expiryTimer;
+  Duration _remaining = const Duration(minutes: 30);
 
   // Replace all _type, _amountController, _location with public fields or pass them as arguments.
   // Add these fields at the top of your _MatchScreenState if you want to access the last transaction request:
@@ -35,18 +38,56 @@ class _MatchScreenState extends State<MatchScreen> {
   void initState() {
     super.initState();
     _findMatches();
+    _startExpiryTimer();
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final args = ModalRoute.of(context)?.settings.arguments as Map?;
-    if (args != null) {
-      lastType = args['type'] as String?;
-      lastAmount = args['amount'] as String?;
-      lastLocation = args['location'] as Map<String, dynamic>?;
+  void dispose() {
+    _expiryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startExpiryTimer() {
+    _expiryTimer?.cancel();
+    if (_myTx != null) {
+      final data = _myTx!.data() as Map<String, dynamic>?;
+      if (data != null && data['expiresAt'] != null) {
+        final expiresAt = DateTime.tryParse(data['expiresAt']);
+        if (expiresAt != null) {
+          final now = DateTime.now();
+          final diff = expiresAt.difference(now);
+          if (diff.isNegative) {
+            _archiveTransaction();
+            _remaining = Duration.zero;
+          } else {
+            _remaining = diff;
+            _expiryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+              final left = expiresAt.difference(DateTime.now());
+              if (left.isNegative) {
+                timer.cancel();
+                _archiveTransaction();
+                setState(() {
+                  _remaining = Duration.zero;
+                });
+              } else {
+                setState(() {
+                  _remaining = left;
+                });
+              }
+            });
+          }
+        }
+      }
     }
-    // ...existing code...
+  }
+
+  Future<void> _archiveTransaction() async {
+    if (_myTx != null) {
+      await FirebaseFirestore.instance
+          .collection('transactions')
+          .doc(_myTx!.id)
+          .update({'status': 'archived'});
+    }
   }
 
   Future<void> _findMatches() async {
@@ -55,6 +96,7 @@ class _MatchScreenState extends State<MatchScreen> {
       _noCandidates = false;
     });
     final currentUser = FirebaseAuth.instance.currentUser!;
+    final now = DateTime.now();
     final txs = await FirebaseFirestore.instance
         .collection('transactions')
         .where('userId', isEqualTo: currentUser.uid)
@@ -70,6 +112,7 @@ class _MatchScreenState extends State<MatchScreen> {
       return;
     }
     _myTx = txs.docs.first;
+    _startExpiryTimer(); // Restart timer when transaction changes
     final myData = _myTx!.data() as Map<String, dynamic>?;
 
     if (myData == null || !myData.containsKey('type') || !myData.containsKey('amount') || !myData.containsKey('location')) {
@@ -85,6 +128,7 @@ class _MatchScreenState extends State<MatchScreen> {
     _myLoc = myData['location'];
     final oppType = myType == 'Deposit' ? 'Withdraw' : 'Deposit';
 
+    // Only show transactions that are pending and not expired
     final candidatesSnap = await FirebaseFirestore.instance
         .collection('transactions')
         .where('type', isEqualTo: oppType)
@@ -97,8 +141,12 @@ class _MatchScreenState extends State<MatchScreen> {
       if (data == null ||
           !data.containsKey('amount') ||
           !data.containsKey('location') ||
-          !data.containsKey('userId')) continue;
+          !data.containsKey('userId') ||
+          !data.containsKey('expiresAt')) continue;
       if (data['userId'] == currentUser.uid) continue;
+
+      final expiresAt = DateTime.tryParse(data['expiresAt']);
+      if (expiresAt == null || expiresAt.isBefore(now)) continue; // skip expired
 
       final loc = data['location'];
       final d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
@@ -273,6 +321,21 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    String timerText =
+        "${_remaining.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(_remaining.inSeconds.remainder(60)).toString().padLeft(2, '0')}";
+
+    // Calculate progress for the timer line (1.0 = full, 0.0 = expired)
+    double timerProgress = _remaining.inSeconds / (30 * 60);
+
+    Color timerColor;
+    if (timerProgress > 0.5) {
+      timerColor = Colors.green;
+    } else if (timerProgress > 0.2) {
+      timerColor = Colors.orange;
+    } else {
+      timerColor = Colors.red;
+    }
+
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -285,6 +348,31 @@ class _MatchScreenState extends State<MatchScreen> {
         appBar: AppBar(title: Text(loc.Matches)),
         body: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  Text(
+                    "Expires in: $timerText",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: timerColor,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: timerProgress.clamp(0.0, 1.0),
+                      minHeight: 8,
+                      backgroundColor: Colors.grey[300],
+                      valueColor: AlwaysStoppedAnimation<Color>(timerColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: DropdownButtonFormField<String>(
@@ -434,31 +522,31 @@ class _MatchScreenState extends State<MatchScreen> {
               ),
           ],
         ),
-        bottomNavigationBar: (_noCandidates && _showSaveButton)
-            ? SafeArea(
-                child: Container(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _saveRequestInRadius,
-                          child: Text("Save in (${_searchRadius}km)"),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _cancelRequestAndExit,
-                          child: const Text("Cancel"),
-                        ),
-                      ),
-                    ],
+        bottomNavigationBar: SafeArea(
+          child: Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                if (_noCandidates && _showSaveButton)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _saveRequestInRadius,
+                      child: Text("Save Request in (${_searchRadius}km)"),
+                    ),
+                  ),
+                if (_noCandidates && _showSaveButton)
+                  const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _cancelRequestAndExit,
+                    child: const Text("Cancel"),
                   ),
                 ),
-              )
-            : null,
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
