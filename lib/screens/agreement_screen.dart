@@ -235,6 +235,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
             _ticker.stop();
           }
 
+          // Listen to changes in the other transaction to update details live
           return StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('transactions')
@@ -258,11 +259,12 @@ class _AgreementScreenState extends State<AgreementScreen> {
               final otherSharedLocation =
                   otherTxData['sharedLocation'] as Map<String, dynamic>?;
 
-              return FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance
+              // Fetch receiver details live
+              return StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
                     .collection('users')
                     .doc(otherUserId)
-                    .get(),
+                    .snapshots(),
                 builder: (context, otherUserSnap) {
                   if (!otherUserSnap.hasData) {
                     return const Scaffold(
@@ -341,7 +343,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Show details if accepted (for receiver)
+                            // Show details if accepted (for receiver and requester)
                             if (status == 'accepted' || status == 'completed')
                               _detailsCard(otherUser, otherSharedLocation, loc),
 
@@ -367,26 +369,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             ],
 
                             const Spacer(),
-                            // Add cancel button at the bottom always
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12.0),
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    minimumSize: const Size.fromHeight(48),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  icon: const Icon(Icons.cancel),
-                                  label: const Text("Cancel Request"),
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _cancelTransaction(myTxId, otherTxId),
-                                ),
-                              ),
-                            ),
+                            // Remove cancel button here
                             if (status == 'accepted')
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
@@ -561,6 +544,25 @@ class Ticker {
     _tick();
   }
 
+  void stop() {
+    _running = false;
+  }
+
+  void _tick() async {
+    Duration elapsed = Duration.zero;
+    while (_running && elapsed.inSeconds < 61) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (_running) {
+        elapsed += const Duration(seconds: 1);
+        onTick(elapsed);
+      }
+    }
+  }
+
+  void dispose() {
+    _running = false;
+  }
+}
   void stop() {
     _running = false;
   }
