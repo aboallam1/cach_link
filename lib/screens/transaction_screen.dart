@@ -219,17 +219,36 @@ class _TransactionScreenState extends State<TransactionScreen> {
       return;
     }
 
-      setState(() => _loading = true);
+    setState(() => _loading = true);
     final user = FirebaseAuth.instance.currentUser!;
 
-    // Instead of direct Firestore write, call a Cloud Function (not shown here)
-    // Example:
-    // await FirebaseFunctions.instance.httpsCallable('createRequest').call({...});
+    // Record transaction in Firestore with radius 10km
+    await FirebaseFirestore.instance.collection('transactions').add({
+      'userId': user.uid,
+      'type': _type,
+      'amount': double.parse(_amountController.text),
+      'location': {
+        'lat': _location!.latitude,
+        'lng': _location!.longitude,
+      },
+      'status': 'pending',
+      'exchangeRequestedBy': null,
+      'instapayConfirmed': false,
+      'cashConfirmed': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
+      'searchRadius': 10,
+    });
 
     setState(() => _loading = false);
-    Navigator.of(context).pushReplacementNamed('/match');
-
-    await searchAndShowCandidates();
+    Navigator.of(context).pushReplacementNamed('/match', arguments: {
+      'type': _type,
+      'amount': _amountController.text,
+      'location': {
+        'lat': _location!.latitude,
+        'lng': _location!.longitude,
+      },
+    });
   }
 
   Future<void> expandSearch() async {

@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:cashlink/l10n/app_localizations.dart';
-import 'package:flutter/services.dart';
 
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
@@ -23,9 +22,8 @@ class _MatchScreenState extends State<MatchScreen> {
   bool _lockActive = false;
   DateTime? _lockUntil;
   bool _noCandidates = false;
-  bool _showSaveBanner = false;
-  bool _requestExpired = false;
-  bool _saveOrCancelRequired = false;
+  bool _canLeave = false; // Add this flag
+  bool _showSaveButton = false; // Add this flag
 
   // Replace all _type, _amountController, _location with public fields or pass them as arguments.
   // Add these fields at the top of your _MatchScreenState if you want to access the last transaction request:
@@ -37,48 +35,24 @@ class _MatchScreenState extends State<MatchScreen> {
   void initState() {
     super.initState();
     _findMatches();
-    _checkRequestExpiry();
-    // Use WillPopScope in build to control back navigation.
   }
 
   @override
-  void dispose() {
-    // nothing to remove here; WillPopScope manages onWillPop
-    super.dispose();
-  }
-
-  Future<bool> _onWillPop() async {
-    // Prevent back navigation if Save-or-Cancel required
-    return !_saveOrCancelRequired;
-  }
-
-  Future<void> _checkRequestExpiry() async {
-    final user = FirebaseAuth.instance.currentUser!;
-    final txSnap = await FirebaseFirestore.instance
-        .collection('transactions')
-        .where('userId', isEqualTo: user.uid)
-        .where('status', isEqualTo: 'pending')
-        .limit(1)
-        .get();
-
-    if (txSnap.docs.isNotEmpty) {
-      final tx = txSnap.docs.first;
-      final data = tx.data() as Map<String, dynamic>;
-      final expiresAt = DateTime.tryParse(data['expiresAt'] ?? '');
-      if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
-        await tx.reference.update({'status': 'archived'});
-        setState(() {
-          _requestExpired = true;
-        });
-      }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map?;
+    if (args != null) {
+      lastType = args['type'] as String?;
+      lastAmount = args['amount'] as String?;
+      lastLocation = args['location'] as Map<String, dynamic>?;
     }
+    // ...existing code...
   }
 
   Future<void> _findMatches() async {
     setState(() {
       _loading = true;
       _noCandidates = false;
-      _saveOrCancelRequired = false;
     });
     final currentUser = FirebaseAuth.instance.currentUser!;
     final txs = await FirebaseFirestore.instance
@@ -92,33 +66,16 @@ class _MatchScreenState extends State<MatchScreen> {
       setState(() {
         _matches = [];
         _loading = false;
-        _saveOrCancelRequired = true;
       });
       return;
     }
     _myTx = txs.docs.first;
     final myData = _myTx!.data() as Map<String, dynamic>?;
 
-    // Check expiry
-    final expiresAt = myData?['expiresAt'];
-    if (expiresAt != null) {
-      final exp = DateTime.tryParse(expiresAt);
-      if (exp != null && DateTime.now().isAfter(exp)) {
-        await _myTx!.reference.update({'status': 'archived'});
-        setState(() {
-          _matches = [];
-          _loading = false;
-          _requestExpired = true;
-        });
-        return;
-      }
-    }
-
     if (myData == null || !myData.containsKey('type') || !myData.containsKey('amount') || !myData.containsKey('location')) {
       setState(() {
         _matches = [];
         _loading = false;
-        _saveOrCancelRequired = true;
       });
       return;
     }
@@ -128,12 +85,10 @@ class _MatchScreenState extends State<MatchScreen> {
     _myLoc = myData['location'];
     final oppType = myType == 'Deposit' ? 'Withdraw' : 'Deposit';
 
-    final nowIso = DateTime.now().toIso8601String();
     final candidatesSnap = await FirebaseFirestore.instance
         .collection('transactions')
         .where('type', isEqualTo: oppType)
         .where('status', isEqualTo: 'pending')
-        .where('expiresAt', isGreaterThan: nowIso)
         .get();
 
     List<DocumentSnapshot> candidates = [];
@@ -191,7 +146,6 @@ class _MatchScreenState extends State<MatchScreen> {
       _matches = matches;
       _loading = false;
       _noCandidates = matches.isEmpty;
-      _saveOrCancelRequired = matches.isEmpty;
     });
   }
 
@@ -199,6 +153,7 @@ class _MatchScreenState extends State<MatchScreen> {
     if (_searchRadius < 50) {
       setState(() {
         _searchRadius += 10;
+        _showSaveButton = true; // Show save button after expanding search
       });
       await _findMatches();
     }
@@ -270,6 +225,51 @@ class _MatchScreenState extends State<MatchScreen> {
     }
   }
 
+  Future<bool> _onWillPop() async {
+    // Prevent back navigation until Save or Cancel is pressed
+    return _canLeave;
+  }
+
+  Future<void> _saveRequestInRadius() async {
+    final user = FirebaseAuth.instance.currentUser!;
+    // Always create a new transaction with status "pending" and current search radius
+    await FirebaseFirestore.instance.collection('transactions').add({
+      'userId': user.uid,
+      'type': lastType ?? 'Deposit',
+      'amount': lastAmount != null ? double.parse(lastAmount!) : 0.0,
+      'location': lastLocation ?? {},
+      'status': 'pending',
+      'exchangeRequestedBy': null,
+      'instapayConfirmed': false,
+      'cashConfirmed': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
+      'searchRadius': _searchRadius,
+    });
+    setState(() {
+      _canLeave = true;
+    });
+    Navigator.of(context).pushReplacementNamed('/history'); // Go to history after saving
+  }
+
+  Future<void> _cancelRequestAndExit() async {
+    final user = FirebaseAuth.instance.currentUser!;
+    final txSnap = await FirebaseFirestore.instance
+        .collection('transactions')
+        .where('userId', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .limit(1)
+        .get();
+
+    for (var doc in txSnap.docs) {
+      await doc.reference.delete();
+    }
+    setState(() {
+      _canLeave = true;
+    });
+    Navigator.of(context).pop(); // Allow leaving after cancel
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -279,241 +279,186 @@ class _MatchScreenState extends State<MatchScreen> {
       );
     }
 
-    // Expiry notification
-    if (_requestExpired) {
-      return Scaffold(
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
         appBar: AppBar(title: Text(loc.Matches)),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text("Your request has expired, you can create a new one.", style: const TextStyle(color: Colors.red)),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pushReplacementNamed('/dashboard');
-                },
-                child: const Text("Go to Home"),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Show Save/Cancel buttons at all times, block back navigation until pressed
-    return Scaffold(
-      appBar: AppBar(title: Text(loc.Matches)),
-      body: WillPopScope(
-        onWillPop: _onWillPop,
-        child: Stack(
+        body: Column(
           children: [
-            Column(
-              children: [
-                if (_showSaveBanner)
-                  MaterialBanner(
-                    content: Text("Your request is saved at $_searchRadius km radius, we will notify you when someone is available."),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _showSaveBanner = false;
-                          });
-                        },
-                        child: const Text("Dismiss"),
-                      ),
-                    ],
-                  ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: DropdownButtonFormField<String>(
-                    value: _filterType,
-                    decoration: InputDecoration(
-                      labelText: loc.filterBy,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                        value: "distance",
-                        child: Text(loc.distance),
-                      ),
-                      DropdownMenuItem(
-                        value: "amount",
-                        child: Text(loc.amount),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      setState(() {
-                        _filterType = val!;
-                        _findMatches();
-                      });
-                    },
-                  ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: DropdownButtonFormField<String>(
+                value: _filterType,
+                decoration: InputDecoration(
+                  labelText: loc.filterBy,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+                items: [
+                  DropdownMenuItem(
+                    value: "distance",
+                    child: Text(loc.distance),
+                  ),
+                  DropdownMenuItem(
+                    value: "amount",
+                    child: Text(loc.amount),
+                  ),
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    _filterType = val!;
+                    _findMatches();
+                  });
+                },
+              ),
+            ),
+            if (_noCandidates)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text(
+                      _searchRadius < 50
+                          ? "No users found in $_searchRadius km."
+                          : "Sorry, no users available at the moment, your request was saved",
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
+                    if (_searchRadius < 50)
+                      ElevatedButton(
+                        onPressed: _expandSearch,
+                        child: Text("Expand Search (+10km)"),
+                      ),
+                  ],
+                ),
+              ),
+            if (!_noCandidates)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _matches.length > 2 ? 2 : _matches.length,
+                  itemBuilder: (ctx, i) {
+                    final tx = _matches[i];
+                    final txData = tx.data() as Map<String, dynamic>?;
 
-                if (_noCandidates)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Text(
-                          _searchRadius < 50
-                              ? "No users found in $_searchRadius km."
-                              : "Sorry, no users available at the moment, your request was saved",
-                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                        ),
-                        if (_searchRadius < 50)
-                          ElevatedButton(
-                            onPressed: _expandSearch,
-                            child: Text("Expand Search (+10km)"),
-                          ),
-                        // Save-or-Cancel buttons
-                        if (_saveOrCancelRequired)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 32),
-                            child: Column(
+                    if (txData == null || !txData.containsKey('userId')) {
+                      return ListTile(title: Text(loc.noTransactions));
+                    }
+
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance.collection('users').doc(txData['userId']).get(),
+                      builder: (ctx, snap) {
+                        if (!snap.hasData) return ListTile(title: Text(loc.waitingForOther));
+                        final user = snap.data!;
+                        final locData = txData['location'];
+                        final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
+
+                        // If there is an exchange request from the other party
+                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
+                          return Card(
+                            child: ListTile(
+                              title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
+                              subtitle: Text(
+                                '${loc.requested}\n'
+                                '${loc.amount}: ${txData['amount']} | '
+                                '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
+                                'Rating: ${user['rating']}',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.check, color: Colors.green),
+                                    onPressed: () => _respondToRequest(tx, true),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close, color: Colors.red),
+                                    onPressed: () => _respondToRequest(tx, false),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        // Normal cards (can send Exchange Request)
+                        return Card(
+                          child: ListTile(
+                            title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
+                            subtitle: Text(
+                              '${loc.amount}: ${txData['amount']} | '
+                              '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
+                              '${loc.rating}: ${user['rating']}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 ElevatedButton(
-                                  onPressed: _saveRequestInRadius,
-                                  child: Text("Save Request in this Radius"),
+                                  onPressed: _lockActive &&
+                                          _lockUntil != null &&
+                                          DateTime.now().isBefore(_lockUntil!)
+                                      ? null
+                                      : () => _sendExchangeRequest(tx, user.id),
+                                  child: Text(_lockActive &&
+                                          _lockUntil != null &&
+                                          DateTime.now().isBefore(_lockUntil!)
+                                      ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)"
+                                      : "Send Request"),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(width: 8),
                                 OutlinedButton(
-                                  onPressed: _cancelRequestAndExit,
-                                  child: const Text("Cancel"),
+                                  onPressed: _lockActive &&
+                                          _lockUntil != null &&
+                                          DateTime.now().isBefore(_lockUntil!)
+                                      ? null
+                                      : () {
+                                          // Cancel logic: set status to cancelled
+                                          if (_myTx != null) {
+                                            FirebaseFirestore.instance
+                                                .collection('transactions')
+                                                .doc(_myTx!.id)
+                                                .update({'status': 'cancelled'});
+                                            setState(() {
+                                              _lockActive = false;
+                                              _lockUntil = null;
+                                            });
+                                          }
+                                        },
+                                  child: const Text("Cancel Request"),
                                 ),
                               ],
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-
-                if (!_noCandidates)
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _matches.length > 2 ? 2 : _matches.length,
-                      itemBuilder: (ctx, i) {
-                        final tx = _matches[i];
-                        final txData = tx.data() as Map<String, dynamic>?;
-
-                        if (txData == null || !txData.containsKey('userId')) {
-                          return ListTile(title: Text(loc.noTransactions));
-                        }
-
-                        return FutureBuilder<DocumentSnapshot>(
-                          future: FirebaseFirestore.instance.collection('users').doc(txData['userId']).get(),
-                          builder: (ctx, snap) {
-                            if (!snap.hasData) return ListTile(title: Text(loc.waitingForOther));
-                            final user = snap.data!;
-                            final locData = txData['location'];
-                            final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
-
-                            if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
-                              return Card(
-                                child: ListTile(
-                                  title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
-                                  subtitle: Text(
-                                    '${loc.requested}\n'
-                                    '${loc.amount}: ${txData['amount']} | '
-                                    '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
-                                    'Rating: ${user['rating']}',
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.check, color: Colors.green),
-                                        onPressed: () => _respondToRequest(tx, true),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.close, color: Colors.red),
-                                        onPressed: () => _respondToRequest(tx, false),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }
-
-                            return Card(
-                              child: ListTile(
-                                title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
-                                subtitle: Text(
-                                  '${loc.amount}: ${txData['amount']} | '
-                                  '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
-                                  '${loc.rating}: ${user['rating']}',
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ElevatedButton(
-                                      onPressed: _lockActive &&
-                                              _lockUntil != null &&
-                                              DateTime.now().isBefore(_lockUntil!)
-                                          ? null
-                                          : () => _sendExchangeRequest(tx, user.id),
-                                      child: Text(_lockActive &&
-                                              _lockUntil != null &&
-                                              DateTime.now().isBefore(_lockUntil!)
-                                          ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)"
-                                          : "Send Request"),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton(
-                                      onPressed: _lockActive &&
-                                              _lockUntil != null &&
-                                              DateTime.now().isBefore(_lockUntil!)
-                                          ? null
-                                          : () {
-                                              if (_myTx != null) {
-                                                FirebaseFirestore.instance
-                                                    .collection('transactions')
-                                                    .doc(_myTx!.id)
-                                                    .update({'status': 'cancelled'});
-                                                setState(() {
-                                                  _lockActive = false;
-                                                  _lockUntil = null;
-                                                });
-                                              }
-                                            },
-                                      child: const Text("Cancel Request"),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
                         );
                       },
-                    ),
-                  ),
-              ],
-            ),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveRequestInRadius,
-                  child: Text("Save Request in this Radius (${_searchRadius}km)"),
+        bottomNavigationBar: (_noCandidates && _showSaveButton)
+            ? SafeArea(
+                child: Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _saveRequestInRadius,
+                          child: Text("Save in (${_searchRadius}km)"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _cancelRequestAndExit,
+                          child: const Text("Cancel"),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _cancelRequestAndExit,
-                  child: const Text("Cancel"),
-                ),
-              ),
-            ],
-          ),
-        ),
+              )
+            : null,
       ),
     );
   }
@@ -543,49 +488,7 @@ class _MatchScreenState extends State<MatchScreen> {
         'cashConfirmed': false,
         'createdAt': FieldValue.serverTimestamp(),
         'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
-        'searchRadius': _searchRadius,
       });
-    }
-  }
-
-  Future<void> _saveRequestInRadius() async {
-    final user = FirebaseAuth.instance.currentUser!;
-    if (_myTx != null) {
-      // Update existing transaction doc to pending with radius and expiry
-      await FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id).update({
-        'status': 'pending',
-        'searchRadius': _searchRadius,
-        'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
-      });
-    } else {
-      // Fallback: create a pending transaction if last fields available
-      await _savePendingRequestIfNeeded();
-    }
-
-    setState(() {
-      _showSaveBanner = true;
-      _saveOrCancelRequired = false;
-      _noCandidates = false;
-    });
-  }
-
-  Future<void> _cancelRequestAndExit() async {
-    final user = FirebaseAuth.instance.currentUser!;
-    final txSnap = await FirebaseFirestore.instance
-        .collection('transactions')
-        .where('userId', isEqualTo: user.uid)
-        .where('status', isEqualTo: 'pending')
-        .limit(1)
-        .get();
-
-    for (var doc in txSnap.docs) {
-      await doc.reference.delete();
-    }
-    setState(() {
-      _saveOrCancelRequired = false;
-    });
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/dashboard');
     }
   }
 }
