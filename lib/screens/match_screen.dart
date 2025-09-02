@@ -71,6 +71,12 @@ class _MatchScreenState extends State<MatchScreen> {
           if (diff.isNegative) {
             _archiveTransaction();
             _remaining = Duration.zero;
+            // Navigate to home page when expired
+            if (mounted) {
+              Future.microtask(() {
+                Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+              });
+            }
           } else {
             _remaining = diff;
             _expiryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -81,6 +87,12 @@ class _MatchScreenState extends State<MatchScreen> {
                 setState(() {
                   _remaining = Duration.zero;
                 });
+                // Navigate to home page when expired
+                if (mounted) {
+                  Future.microtask(() {
+                    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+                  });
+                }
               } else {
                 setState(() {
                   _remaining = left;
