@@ -26,6 +26,7 @@ class _MatchScreenState extends State<MatchScreen> {
   bool _canLeave = false; // Add this flag
   bool _showSaveButton = false; // Add this flag
   Timer? _expiryTimer;
+  Timer? _refreshTimer;
   Duration _remaining = const Duration(minutes: 30);
 
   // Replace all _type, _amountController, _location with public fields or pass them as arguments.
@@ -39,12 +40,23 @@ class _MatchScreenState extends State<MatchScreen> {
     super.initState();
     _findMatches();
     _startExpiryTimer();
+    _startAutoRefresh();
   }
 
   @override
   void dispose() {
     _expiryTimer?.cancel();
+    _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _findMatches();
+      }
+    });
   }
 
   void _startExpiryTimer() {
