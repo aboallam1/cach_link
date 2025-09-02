@@ -292,29 +292,30 @@ class _AgreementScreenState extends State<AgreementScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Professional timer bar
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: LinearProgressIndicator(
-                                    value: _remainingSeconds / 60,
-                                    backgroundColor: Colors.grey[300],
-                                    color: _remainingSeconds > 10 ? Colors.green : Colors.red,
+                            // Show timer bar only for requester
+                            if (iAmRequester)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: LinearProgressIndicator(
+                                      value: _remainingSeconds / 60,
+                                      backgroundColor: Colors.grey[300],
+                                      color: _remainingSeconds > 10 ? Colors.green : Colors.red,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  "${_remainingSeconds}s",
-                                  style: TextStyle(
-                                    color: _remainingSeconds > 10 ? Colors.black : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    "${_remainingSeconds}s",
+                                    style: TextStyle(
+                                      color: _remainingSeconds > 10 ? Colors.black : Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            const SizedBox(height: 16),
+                                ],
+                              ),
+                            if (iAmRequester)
+                              const SizedBox(height: 12),
                             Card(
                               color: Colors.red[50],
                               shape: RoundedRectangleBorder(
