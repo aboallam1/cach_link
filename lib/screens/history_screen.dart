@@ -357,7 +357,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   subtitle: Text("${loc.status}: ${_localizedStatus(status, loc)}"),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showTransactionDetails(data),
+                  onTap: status == 'pending'
+                      ? () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(loc.cancel),
+                              content: Text(
+                                  "${loc.cancel} this pending transaction?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: Text(loc.close),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  child: Text(loc.cancel),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await FirebaseFirestore.instance
+                                .collection('transactions')
+                                .doc(doc.id)
+                                .update({'status': 'canceled'});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${loc.canceled}!')),
+                            );
+                          }
+                        }
+                      : () => _showTransactionDetails(data),
                 ),
               );
             },

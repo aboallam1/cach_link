@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Program name and logo above timer
+                // Program name
                 Padding(
                   padding: const EdgeInsets.only(top: 24, bottom: 125),
                   child: Column(
@@ -236,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 if (hasActiveTx && remaining.inSeconds > 0)
                   Padding(
-                    padding: const EdgeInsets.only(top: 24),
+                    padding: const EdgeInsets.only(top: 24, left: 16, right: 16),
                     child: Text(
                       loc.activeTransaction,
                       style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
