@@ -96,13 +96,13 @@ class _HomeScreenState extends State<HomeScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Center(
-        child: FutureBuilder<QuerySnapshot>(
-          future: FirebaseFirestore.instance
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
               .collection('transactions')
               .where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid)
-              .where('status', whereIn: ['pending', 'requested', 'accepted'])
+              .where('status', whereIn: ['pending', 'accepted'])
               .limit(1)
-              .get(),
+              .snapshots(),
           builder: (context, snapshot) {
             final hasActiveTx = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
             DateTime? expiresAt;
@@ -111,9 +111,20 @@ class _HomeScreenState extends State<HomeScreen> {
               if (txData['expiresAt'] != null) {
                 expiresAt = DateTime.tryParse(txData['expiresAt']);
                 if (expiresAt != null) {
-                  // Start or update timer
-                  _startTimer(expiresAt);
+                  // Start or update timer only if changed
+                  if (_remaining == null ||
+                      (_remaining != null &&
+                          expiresAt.difference(DateTime.now()).inSeconds != _remaining!.inSeconds)) {
+                    _startTimer(expiresAt);
+                  }
                 }
+              }
+            } else {
+              // No active transaction, stop timer
+              if (_timer != null) {
+                _timer!.cancel();
+                _timer = null;
+                _remaining = null;
               }
             }
             Duration remaining = _remaining ?? Duration.zero;
@@ -131,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 // Program name
                 Padding(
-                  padding: const EdgeInsets.only(top: 24, bottom: 125),
+                  padding: const EdgeInsets.only(top: 24, bottom: 125, ),
                   child: Column(
                     children: [
                       Text(
@@ -147,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 if (hasActiveTx && expiresAt != null && remaining.inSeconds > 0)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
                     child: Column(
                       children: [
                         Text(
