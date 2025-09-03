@@ -79,6 +79,18 @@ class AppLocalizations {
       'Create Transaction': 'Create Transaction',
       'New Transaction': 'New Transaction',
       'descriptionOfNewTransaction': 'Create a new transaction.',
+      'expiresIn': 'Expires in',
+      'activeTransaction': 'You already have a transaction, you cannot create a new one until the time expires or you cancel this transaction.',
+      'noUsersFoundIn': 'No users found in',
+      'km': 'km',
+      'noUsersAvailableRequestSaved': 'Sorry, no users available at the moment, your request was saved',
+      'expandSearch': 'Expand Search (+10km)',
+      'rateUser': 'Rate User',
+      'rateUserTransactionPartner': 'Rate your transaction partner:',
+      'commentOptional': 'Comment (optional)',
+      'submitRating': 'Submit Rating',
+      'confirmCashReceived': 'Confirm Cash Received',
+      'confirmInstapayTransfer': 'Confirm Transfer',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -141,6 +153,18 @@ class AppLocalizations {
       'Create Transaction': 'إنشاء معاملة',
       'New Transaction': 'معاملة جديدة',
       'descriptionOfNewTransaction': 'قم بإنشاء معاملة جديدة.',
+      'expiresIn': 'ينتهي خلال',
+      'activeTransaction': 'لديك معاملة بالفعل، لا يمكنك إنشاء معاملة جديدة حتى ينتهي الوقت أو تلغي هذه المعاملة.',
+      'noUsersFoundIn': 'لا يوجد مستخدمون في نطاق',
+      'km': 'كم',
+      'noUsersAvailableRequestSaved': 'عذراً، لا يوجد مستخدمون حالياً، تم حفظ طلبك',
+      'expandSearch': 'توسيع البحث (+10كم)',
+      'rateUser': 'قيم المستخدم',
+      'rateUserTransactionPartner': 'قيم شريك معاملتك:',
+      'commentOptional': 'تعليق (اختياري)',
+      'submitRating': 'إرسال التقييم',
+      'confirmCashReceived': 'تأكيد استلام النقود',
+      'confirmInstapayTransfer': 'تأكيد التحويل ',
     },
   };
 
@@ -212,6 +236,18 @@ class AppLocalizations {
   String get CreateTransaction => _t('Create Transaction');
   String get NewTransaction => _t('New Transaction');
   String get descriptionOfNewTransaction => _t('descriptionOfNewTransaction');
+  String get expiresIn => _t('expiresIn');
+  String get activeTransaction => _t('activeTransaction');
+  String get noUsersFoundIn => _t('noUsersFoundIn');
+  String get km => _t('km');
+  String get noUsersAvailableRequestSaved => _t('noUsersAvailableRequestSaved');
+  String get expandSearch => _t('expandSearch');
+  String get rateUser => _t('rateUser');
+  String get rateUserTransactionPartner => _t('rateUserTransactionPartner');
+  String get commentOptional => _t('commentOptional');
+  String get submitRating => _t('submitRating');
+  String get confirmCashReceived => _t('confirmCashReceived');
+  String get confirmInstapayTransfer => _t('confirmInstapayTransfer');
 }
 
 class _AppLocalizationsDelegate

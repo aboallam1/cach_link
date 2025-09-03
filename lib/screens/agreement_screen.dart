@@ -414,9 +414,9 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     icon: const Icon(Icons.send, color: Colors.white),
-                                    label: const Text(
-                                      'Confirm Instapay Transfer',
-                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    label: Text(
+                                      loc.confirmInstapayTransfer ?? 'Confirm Instapay Transfer',
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green[700],
@@ -454,9 +454,9 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     icon: const Icon(Icons.attach_money, color: Colors.white),
-                                    label: const Text(
-                                      'Confirm Cash Received',
-                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    label: Text(
+                                      loc.confirmCashReceived ?? 'Confirm Cash Received',
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green[700],

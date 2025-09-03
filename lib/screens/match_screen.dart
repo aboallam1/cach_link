@@ -370,12 +370,38 @@ class _MatchScreenState extends State<MatchScreen> {
         appBar: AppBar(title: Text(loc.Matches)),
         body: Column(
           children: [
+            // Program name and logo above timer
+            Padding(
+              padding: const EdgeInsets.only(top: 24, bottom: 8),
+              child: Column(
+                children: [
+                  Text(
+                    loc.appTitle, // Use localized app name
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Logo (replace with your asset if available)
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.transparent,
+                    child: Image.asset(
+                      'assets/logo.png', // Place your logo at assets/logo.png
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 children: [
                   Text(
-                    "Expires in: $timerText",
+                    "${loc.expiresIn}: $timerText", // Use localized "Expires in"
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -428,14 +454,14 @@ class _MatchScreenState extends State<MatchScreen> {
                   children: [
                     Text(
                       _searchRadius < 50
-                          ? "No users found in $_searchRadius km."
-                          : "Sorry, no users available at the moment, your request was saved",
+                          ? "${loc.noUsersFoundIn} $_searchRadius ${loc.km}" // Add to localization if needed
+                          : loc.noUsersAvailableRequestSaved ?? "Sorry, no users available at the moment, your request was saved",
                       style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                     ),
                     if (_searchRadius < 50)
                       ElevatedButton(
                         onPressed: _expandSearch,
-                        child: Text("Expand Search (+10km)"),
+                        child: Text(loc.expandSearch), // Add to localization if needed
                       ),
                   ],
                 ),

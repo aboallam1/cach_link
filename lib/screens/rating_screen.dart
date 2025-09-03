@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class RatingScreen extends StatefulWidget {
   const RatingScreen({super.key});
@@ -36,15 +37,16 @@ class _RatingScreenState extends State<RatingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final args = ModalRoute.of(context)!.settings.arguments as Map?;
     final otherUserId = args?['otherUserId'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Rate User')),
+      appBar: AppBar(title: Text(loc.rateUser)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Text('Rate your transaction partner:'),
+            Text(loc.rateUserTransactionPartner ?? 'Rate your transaction partner:'),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(5, (i) => IconButton(
@@ -58,9 +60,9 @@ class _RatingScreenState extends State<RatingScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _commentController,
-              decoration: const InputDecoration(
-                labelText: 'Comment (optional)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: loc.commentOptional ?? 'Comment (optional)',
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -69,7 +71,7 @@ class _RatingScreenState extends State<RatingScreen> {
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: () => _submit(otherUserId),
-                    child: const Text('Submit Rating'),
+                    child: Text(loc.submitRating ?? 'Submit Rating'),
                   ),
           ],
         ),
