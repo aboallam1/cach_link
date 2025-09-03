@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cashlink/l10n/app_localizations.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,10 +16,20 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _profileComplete = false;
   int _selectedIndex = 0;
 
+  // Add these for timer
+  Duration? _remaining;
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
     _checkProfile();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkProfile() async {
@@ -29,16 +40,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     final kycVerified = doc.data()?['KYC_verified'] ?? false;
-    if (doc.exists && doc['name'] != null && doc['gender'] != null && kycVerified) {
+    final hasIdImage = doc.data()?['idImageUrl'] != null && (doc.data()?['idImageUrl'] as String).isNotEmpty;
+    if (doc.exists && doc['name'] != null && doc['gender'] != null && kycVerified && hasIdImage) {
       setState(() {
         _profileComplete = true;
         _loading = false;
       });
     } else {
+      // If missing ID image, redirect to profile page to upload
       Navigator.of(context).pushReplacementNamed('/profile');
     }
-
-
   }
 
   void _onNavTap(int index) {
@@ -53,6 +64,20 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (index == 3) {
       Navigator.of(context).pushNamed('/settings');
     }
+  }
+
+  void _startTimer(DateTime expiresAt) {
+    _timer?.cancel();
+    _remaining = expiresAt.difference(DateTime.now());
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        _remaining = expiresAt.difference(DateTime.now());
+        if (_remaining != null && _remaining!.isNegative) {
+          _remaining = Duration.zero;
+          timer.cancel();
+        }
+      });
+    });
   }
 
   @override
@@ -80,9 +105,56 @@ class _HomeScreenState extends State<HomeScreen> {
               .get(),
           builder: (context, snapshot) {
             final hasActiveTx = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+            DateTime? expiresAt;
+            if (hasActiveTx) {
+              final txData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+              if (txData['expiresAt'] != null) {
+                expiresAt = DateTime.tryParse(txData['expiresAt']);
+                if (expiresAt != null) {
+                  // Start or update timer
+                  _startTimer(expiresAt);
+                }
+              }
+            }
+            Duration remaining = _remaining ?? Duration.zero;
+            double timerProgress = remaining.inSeconds / (30 * 60);
+            Color timerColor;
+            if (timerProgress > 0.5) {
+              timerColor = Colors.green;
+            } else if (timerProgress > 0.2) {
+              timerColor = Colors.orange;
+            } else {
+              timerColor = Colors.red;
+            }
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                if (hasActiveTx && expiresAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      children: [
+                        Text(
+                          "Expires in: ${remaining.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(remaining.inSeconds.remainder(60)).toString().padLeft(2, '0')}",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: timerColor,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: timerProgress.clamp(0.0, 1.0),
+                            minHeight: 8,
+                            backgroundColor: Colors.grey[300],
+                            valueColor: AlwaysStoppedAnimation<Color>(timerColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 SizedBox(
                   width: 220,
                   height: 100,
@@ -94,10 +166,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(16),
                       onTap: hasActiveTx
                           ? null
-                          : () => Navigator.of(context).pushNamed(
-                              '/transaction',
-                              arguments: {'transactionType': 'Deposit'},
-                            ),
+                          : () async {
+                              // Archive all old active transactions before allowing new
+                              final userId = FirebaseAuth.instance.currentUser!.uid;
+                              final activeTxs = await FirebaseFirestore.instance
+                                  .collection('transactions')
+                                  .where('userId', isEqualTo: userId)
+                                  .where('status', whereIn: ['pending', 'requested', 'accepted'])
+                                  .get();
+                              for (var doc in activeTxs.docs) {
+                                await doc.reference.update({'status': 'archived'});
+                              }
+                              Navigator.of(context).pushNamed(
+                                '/transaction',
+                                arguments: {'transactionType': 'Deposit'},
+                              );
+                            },
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -123,10 +207,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(16),
                       onTap: hasActiveTx
                           ? null
-                          : () => Navigator.of(context).pushNamed(
-                              '/transaction',
-                              arguments: {'transactionType': 'Withdraw'},
-                            ),
+                          : () async {
+                              // Archive all old active transactions before allowing new
+                              final userId = FirebaseAuth.instance.currentUser!.uid;
+                              final activeTxs = await FirebaseFirestore.instance
+                                  .collection('transactions')
+                                  .where('userId', isEqualTo: userId)
+                                  .where('status', whereIn: ['pending', 'requested', 'accepted'])
+                                  .get();
+                              for (var doc in activeTxs.docs) {
+                                await doc.reference.update({'status': 'archived'});
+                              }
+                              Navigator.of(context).pushNamed(
+                                '/transaction',
+                                arguments: {'transactionType': 'Withdraw'},
+                              );
+                            },
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
