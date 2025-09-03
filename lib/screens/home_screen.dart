@@ -145,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                if (hasActiveTx && expiresAt != null)
+                if (hasActiveTx && expiresAt != null && remaining.inSeconds > 0)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Column(
@@ -180,24 +180,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     elevation: 6,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      onTap: hasActiveTx
-                          ? null
-                          : () async {
-                              // Archive all old active transactions before allowing new
-                              final userId = FirebaseAuth.instance.currentUser!.uid;
-                              final activeTxs = await FirebaseFirestore.instance
-                                  .collection('transactions')
-                                  .where('userId', isEqualTo: userId)
-                                  .where('status', whereIn: ['pending', 'requested', 'accepted'])
-                                  .get();
-                              for (var doc in activeTxs.docs) {
-                                await doc.reference.update({'status': 'archived'});
-                              }
+                      // Allow new transaction if no activeTx or timer ended
+                      onTap: (!hasActiveTx || (remaining.inSeconds <= 0))
+                          ? () async {
                               Navigator.of(context).pushNamed(
                                 '/transaction',
                                 arguments: {'transactionType': 'Deposit'},
                               );
-                            },
+                            }
+                          : null,
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -221,24 +212,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     elevation: 6,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      onTap: hasActiveTx
-                          ? null
-                          : () async {
-                              // Archive all old active transactions before allowing new
-                              final userId = FirebaseAuth.instance.currentUser!.uid;
-                              final activeTxs = await FirebaseFirestore.instance
-                                  .collection('transactions')
-                                  .where('userId', isEqualTo: userId)
-                                  .where('status', whereIn: ['pending', 'requested', 'accepted'])
-                                  .get();
-                              for (var doc in activeTxs.docs) {
-                                await doc.reference.update({'status': 'archived'});
-                              }
+                      // Allow new transaction if no activeTx or timer ended
+                      onTap: (!hasActiveTx || (remaining.inSeconds <= 0))
+                          ? () async {
                               Navigator.of(context).pushNamed(
                                 '/transaction',
                                 arguments: {'transactionType': 'Withdraw'},
                               );
-                            },
+                            }
+                          : null,
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -252,11 +234,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                if (hasActiveTx)
+                if (hasActiveTx && remaining.inSeconds > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: 24),
                     child: Text(
-                      loc.activeTransaction, // Use localized string
+                      loc.activeTransaction,
                       style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                     ),
                   ),

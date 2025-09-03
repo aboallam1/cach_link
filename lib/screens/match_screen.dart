@@ -370,32 +370,6 @@ class _MatchScreenState extends State<MatchScreen> {
         appBar: AppBar(title: Text(loc.Matches)),
         body: Column(
           children: [
-            // Program name and logo above timer
-            Padding(
-              padding: const EdgeInsets.only(top: 24, bottom: 8),
-              child: Column(
-                children: [
-                  Text(
-                    loc.appTitle, // Use localized app name
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueGrey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Logo (replace with your asset if available)
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.transparent,
-                    child: Image.asset(
-                      'assets/logo.png', // Place your logo at assets/logo.png
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Column(
