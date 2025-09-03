@@ -46,7 +46,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
       }
     });
   }
-  
+
   Future<void> _setBothTxFields({
     required String myTxId,
     required String otherTxId,
@@ -342,12 +342,12 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Show details if either transaction is accepted or completed
+                            // Show details if accepted or completed
                             if ((status == 'accepted' || status == 'completed' ||
                                  otherStatus == 'accepted' || otherStatus == 'completed') && otherUser.isNotEmpty)
                               _detailsCard(otherUser, otherSharedLocation, loc),
 
-                            // Show waiting/accept/reject UI if not accepted
+                            // Accept / Decline flow
                             if (status == 'requested' && otherStatus != 'accepted' && iAmRequester) ...[
                               _infoCard(
                                 icon: Icons.hourglass_top,
@@ -355,13 +355,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                 subtitle:
                                     '${loc.name}: ${otherUser['name'] ?? 'Unknown'}',
                               ),
-                            ],
-
-                            if (status == 'requested' && otherStatus != 'accepted' && iAmRequester)
                               const Spacer(),
-
-                            // Add cancel button for requester before receiver accepts/cancels
-                            if (status == 'requested' && otherStatus != 'accepted' && iAmRequester)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: SizedBox(
@@ -371,7 +365,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                     label: Text(loc.cancel),
                                     onPressed: _busy
                                         ? null
-                                        : () => _cancelTransaction(myTxId!, otherTxId),
+                                        : () => _cancelTransaction(myTxId, otherTxId),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.red,
                                       minimumSize: const Size.fromHeight(48),
@@ -383,9 +377,10 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                   ),
                                 ),
                               ),
+                            ],
 
-                            // ...existing code for accept/complete buttons...
-                            if (status == 'accepted')
+                            // Confirmation buttons
+                            if (status == 'accepted' || status == 'completed')
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
                                   minimumSize: const Size.fromHeight(48),
@@ -393,7 +388,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12)),
                                 ),
-                                icon: const Icon(Icons.check_circle),
+                                icon: Icon(iAmDeposit ? Icons.send : Icons.attach_money),
                                 onPressed: _busy
                                     ? null
                                     : () => _confirmStep(
@@ -406,87 +401,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                     : loc.cashReceived),
                               ),
 
-                            // Only show the deposit button for deposit users
-                            if ((status == 'accepted' || status == 'completed') && !_busy && iAmDeposit) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    icon: const Icon(Icons.send, color: Colors.white),
-                                    label: Text(
-                                      loc.confirmInstapayTransfer ?? 'Confirm Instapay Transfer',
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green[700],
-                                      minimumSize: const Size.fromHeight(48),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      setState(() => _busy = true);
-                                      await FirebaseFirestore.instance
-                                          .collection('transactions')
-                                          .doc(myTxId)
-                                          .update({
-                                            'instapayConfirmed': true,
-                                            'completedAt': FieldValue.serverTimestamp(),
-                                            'status': 'completed',
-                                          });
-                                      setState(() => _busy = false);
-                                      Navigator.of(context).pushReplacementNamed('/rating', arguments: {
-                                        'otherUserId': otherUser['id'] ?? otherUserId,
-                                        'txId': myTxId,
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-
-                            // Only show the withdraw button for withdraw users
-                            if ((status == 'accepted' || status == 'completed') && !_busy && !iAmDeposit) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    icon: const Icon(Icons.attach_money, color: Colors.white),
-                                    label: Text(
-                                      loc.confirmCashReceived ?? 'Confirm Cash Received',
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green[700],
-                                      minimumSize: const Size.fromHeight(48),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      setState(() => _busy = true);
-                                      await FirebaseFirestore.instance
-                                          .collection('transactions')
-                                          .doc(myTxId)
-                                          .update({
-                                            'cashConfirmed': true,
-                                            'completedAt': FieldValue.serverTimestamp(),
-                                            'status': 'completed',
-                                          });
-                                      setState(() => _busy = false);
-                                      Navigator.of(context).pushReplacementNamed('/rating', arguments: {
-                                        'otherUserId': otherUser['id'] ?? otherUserId,
-                                        'txId': myTxId,
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-
-                            // ...existing code for completed message...
                             if (status == 'completed')
                               Center(
                                 child: Text(
@@ -523,52 +437,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
     );
   }
 
-  Widget _actionCard({
-    required String name,
-    required VoidCallback onAccept,
-    required VoidCallback onDecline,
-    required bool busy,
-    required AppLocalizations loc,
-  }) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${loc.exchangeRequestFrom} $name',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: busy ? null : onDecline,
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    label: Text(loc.reject),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[700],
-                    ),
-                    onPressed: busy ? null : onAccept,
-                    icon: const Icon(Icons.check, color: Colors.white),
-                    label: Text(loc.accept),
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _detailsCard(Map<String, dynamic> otherUser, Map<String, dynamic>? otherLocation, AppLocalizations loc) {
     String? googleMapsUrl;
     if (otherLocation != null &&
@@ -576,7 +444,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
         otherLocation['lng'] != null) {
       final lat = otherLocation['lat'];
       final lng = otherLocation['lng'];
-      // Ensure lat/lng are not null and are strings/numbers
       if (lat != null && lng != null) {
         googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
       }
@@ -614,10 +481,9 @@ class _AgreementScreenState extends State<AgreementScreen> {
                     IconButton(
                       icon: const Icon(Icons.map, color: Colors.blue),
                       tooltip: 'Open in Maps',
-                      onPressed: () async {
-                        // Defensive: Only run if googleMapsUrl is not null and not empty
+                      onPressed: () {
                         if (googleMapsUrl != null && googleMapsUrl.isNotEmpty) {
-                          print('To open in browser: \$BROWSER "$googleMapsUrl"');
+                          print('Open maps: $googleMapsUrl');
                         }
                       },
                     ),
@@ -639,13 +505,10 @@ class _AgreementScreenState extends State<AgreementScreen> {
     );
   }
 
-  // Add this method to fix the error
   Future<bool> _onWillPop() async {
-    // Prevent leaving unless cancelled, accepted, or timeout
     return _canLeave;
   }
 
-  // Define the cancel transaction method
   Future<void> _cancelTransaction(String myTxId, String otherTxId) async {
     setState(() => _busy = true);
     await _setBothTxFields(
@@ -661,7 +524,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
   }
 }
 
-// Helper ticker for countdown
 class AgreementTicker {
   final void Function(Duration) onTick;
   bool _running = false;
