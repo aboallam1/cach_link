@@ -309,25 +309,17 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _saveRequestInRadius() async {
-    final user = FirebaseAuth.instance.currentUser!;
-    // Always create a new transaction with status "pending" and current search radius
-    await FirebaseFirestore.instance.collection('transactions').add({
-      'userId': user.uid,
-      'type': lastType ?? 'Deposit',
-      'amount': lastAmount != null ? double.parse(lastAmount!) : 0.0,
-      'location': lastLocation ?? {},
-      'status': 'pending',
-      'exchangeRequestedBy': null,
-      'instapayConfirmed': false,
-      'cashConfirmed': false,
-      'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
-      'searchRadius': _searchRadius,
-    });
-    setState(() {
-      _canLeave = true;
-    });
-    Navigator.of(context).pushReplacementNamed('/history'); // Go to history after saving
+    // Update the searchRadius of the current transaction instead of creating a new one
+    if (_myTx != null) {
+      await FirebaseFirestore.instance
+          .collection('transactions')
+          .doc(_myTx!.id)
+          .update({'searchRadius': _searchRadius});
+      setState(() {
+        _canLeave = true;
+      });
+      Navigator.of(context).pushReplacementNamed('/history');
+    }
   }
 
   Future<void> _cancelRequestAndExit() async {
