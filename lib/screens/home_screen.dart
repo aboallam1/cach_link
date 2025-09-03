@@ -120,15 +120,31 @@ class _HomeScreenState extends State<HomeScreen> {
             double timerProgress = remaining.inSeconds / (30 * 60);
             Color timerColor;
             if (timerProgress > 0.5) {
-              timerColor = Colors.green;
+              timerColor = Colors.red;
             } else if (timerProgress > 0.2) {
               timerColor = Colors.orange;
             } else {
-              timerColor = Colors.red;
+              timerColor = Colors.green;
             }
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Program name and logo above timer
+                Padding(
+                  padding: const EdgeInsets.only(top: 24, bottom: 8),
+                  child: Column(
+                    children: [
+                      Text(
+                        "CashLink",
+                        style: const TextStyle(
+                          fontSize: 35,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 if (hasActiveTx && expiresAt != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
