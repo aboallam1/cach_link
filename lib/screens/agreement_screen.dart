@@ -247,32 +247,25 @@ class _AgreementScreenState extends State<AgreementScreen> {
                     body: Center(child: CircularProgressIndicator()));
               }
               final otherTxDoc = otherTxSnap.data!;
-              final otherTxData =
-                  otherTxDoc.data() as Map<String, dynamic>?;
+              final otherTxData = otherTxDoc.data() as Map<String, dynamic>?;
 
-              if (otherTxData == null) {
-                return Scaffold(
-                    body: Center(child: Text(loc.noTransactions)));
-              }
-
-              final otherUserId = otherTxData['userId'] as String;
-              final otherSharedLocation =
-                  otherTxData['sharedLocation'] as Map<String, dynamic>?;
+              // Define otherStatus here so it's in scope for the UI logic below
+              final otherStatus = (otherTxData?['status'] as String?) ?? 'pending';
+              final otherUserId = otherTxData?['userId'] as String?;
+              final otherSharedLocation = otherTxData?['sharedLocation'] as Map<String, dynamic>?;
 
               // Fetch receiver details live
               return StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(otherUserId)
-                    .snapshots(),
+                stream: otherUserId != null
+                    ? FirebaseFirestore.instance.collection('users').doc(otherUserId).snapshots()
+                    : null,
                 builder: (context, otherUserSnap) {
                   if (!otherUserSnap.hasData) {
                     return const Scaffold(
                         body: Center(child: CircularProgressIndicator()));
                   }
                   final otherUserDoc = otherUserSnap.data!;
-                  final otherUser =
-                      otherUserDoc.data() as Map<String, dynamic>? ?? {};
+                  final otherUser = otherUserDoc.data() as Map<String, dynamic>? ?? {};
 
                   return Scaffold(
                     appBar: AppBar(
@@ -343,33 +336,49 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            // Show details if accepted (for receiver and requester)
-                            if (status == 'accepted' || status == 'completed')
+                            // Show details if either transaction is accepted or completed
+                            if ((status == 'accepted' || status == 'completed' ||
+                                 otherStatus == 'accepted' || otherStatus == 'completed') && otherUser.isNotEmpty)
                               _detailsCard(otherUser, otherSharedLocation, loc),
 
                             // Show waiting/accept/reject UI if not accepted
-                            if (status == 'requested' && iAmRequester) ...[
+                            if (status == 'requested' && otherStatus != 'accepted' && iAmRequester) ...[
                               _infoCard(
                                 icon: Icons.hourglass_top,
                                 title: loc.waitingForOther,
                                 subtitle:
                                     '${loc.name}: ${otherUser['name'] ?? 'Unknown'}',
                               ),
-                            ] else if (status == 'requested' &&
-                                !iAmRequester) ...[
-                              _actionCard(
-                                name: otherUser['name'] ?? 'Unknown',
-                                onAccept: () =>
-                                    _acceptRequest(myTxId, otherTxId),
-                                onDecline: () =>
-                                    _declineRequest(myTxId, otherTxId),
-                                busy: _busy,
-                                loc: loc,
-                              ),
                             ],
 
-                            const Spacer(),
-                            // Remove cancel button here
+                            if (status == 'requested' && otherStatus != 'accepted' && iAmRequester)
+                              const Spacer(),
+
+                            // Add cancel button for requester before receiver accepts/cancels
+                            if (status == 'requested' && otherStatus != 'accepted' && iAmRequester)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    icon: const Icon(Icons.cancel, color: Colors.red),
+                                    label: Text(loc.cancel),
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _cancelTransaction(myTxId!, otherTxId),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      minimumSize: const Size.fromHeight(48),
+                                      side: const BorderSide(color: Colors.red),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            // ...existing code for accept/complete buttons...
                             if (status == 'accepted')
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
