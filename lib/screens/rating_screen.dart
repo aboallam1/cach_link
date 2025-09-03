@@ -12,6 +12,7 @@ class RatingScreen extends StatefulWidget {
 class _RatingScreenState extends State<RatingScreen> {
   int _stars = 5;
   bool _loading = false;
+  final TextEditingController _commentController = TextEditingController();
 
   Future<void> _submit(String otherUserId) async {
     setState(() => _loading = true);
@@ -20,6 +21,7 @@ class _RatingScreenState extends State<RatingScreen> {
       'raterId': user.uid,
       'ratedUserId': otherUserId,
       'stars': _stars,
+      'comment': _commentController.text.trim(),
     });
     // Update average rating
     final ratings = await FirebaseFirestore.instance
@@ -54,6 +56,15 @@ class _RatingScreenState extends State<RatingScreen> {
               )),
             ),
             const SizedBox(height: 16),
+            TextField(
+              controller: _commentController,
+              decoration: const InputDecoration(
+                labelText: 'Comment (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
             _loading
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
@@ -64,5 +75,11 @@ class _RatingScreenState extends State<RatingScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
   }
 }
