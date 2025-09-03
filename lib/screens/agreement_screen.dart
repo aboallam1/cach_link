@@ -254,6 +254,12 @@ class _AgreementScreenState extends State<AgreementScreen> {
               final otherUserId = otherTxData?['userId'] as String?;
               final otherSharedLocation = otherTxData?['sharedLocation'] as Map<String, dynamic>?;
 
+              // Stop timer for both users when either transaction is accepted or completed
+              if ((status == 'accepted' || status == 'completed' ||
+                   otherStatus == 'accepted' || otherStatus == 'completed') && _ticker._running) {
+                _ticker.stop();
+              }
+
               // Fetch receiver details live
               return StreamBuilder<DocumentSnapshot>(
                 stream: otherUserId != null
@@ -399,6 +405,88 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                     ? loc.instapayTransferred
                                     : loc.cashReceived),
                               ),
+
+                            // Only show the deposit button for deposit users
+                            if ((status == 'accepted' || status == 'completed') && !_busy && iAmDeposit) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.send, color: Colors.white),
+                                    label: const Text(
+                                      'Confirm Instapay Transfer',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green[700],
+                                      minimumSize: const Size.fromHeight(48),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      setState(() => _busy = true);
+                                      await FirebaseFirestore.instance
+                                          .collection('transactions')
+                                          .doc(myTxId)
+                                          .update({
+                                            'instapayConfirmed': true,
+                                            'completedAt': FieldValue.serverTimestamp(),
+                                            'status': 'completed',
+                                          });
+                                      setState(() => _busy = false);
+                                      Navigator.of(context).pushReplacementNamed('/rating', arguments: {
+                                        'otherUserId': otherUser['id'] ?? otherUserId,
+                                        'txId': myTxId,
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+
+                            // Only show the withdraw button for withdraw users
+                            if ((status == 'accepted' || status == 'completed') && !_busy && !iAmDeposit) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.attach_money, color: Colors.white),
+                                    label: const Text(
+                                      'Confirm Cash Received',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green[700],
+                                      minimumSize: const Size.fromHeight(48),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      setState(() => _busy = true);
+                                      await FirebaseFirestore.instance
+                                          .collection('transactions')
+                                          .doc(myTxId)
+                                          .update({
+                                            'cashConfirmed': true,
+                                            'completedAt': FieldValue.serverTimestamp(),
+                                            'status': 'completed',
+                                          });
+                                      setState(() => _busy = false);
+                                      Navigator.of(context).pushReplacementNamed('/rating', arguments: {
+                                        'otherUserId': otherUser['id'] ?? otherUserId,
+                                        'txId': myTxId,
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+
+                            // ...existing code for completed message...
                             if (status == 'completed')
                               Center(
                                 child: Text(
@@ -482,6 +570,17 @@ class _AgreementScreenState extends State<AgreementScreen> {
   }
 
   Widget _detailsCard(Map<String, dynamic> otherUser, Map<String, dynamic>? otherLocation, AppLocalizations loc) {
+    String? googleMapsUrl;
+    if (otherLocation != null &&
+        otherLocation['lat'] != null &&
+        otherLocation['lng'] != null) {
+      final lat = otherLocation['lat'];
+      final lng = otherLocation['lng'];
+      // Ensure lat/lng are not null and are strings/numbers
+      if (lat != null && lng != null) {
+        googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+      }
+    }
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
@@ -502,7 +601,28 @@ class _AgreementScreenState extends State<AgreementScreen> {
             Text('${loc.rating}: ${otherUser['rating'] ?? '-'}'),
             const Divider(),
             if (otherLocation != null)
-              Text('${loc.locationShared} (Lat: ${otherLocation['lat']}, Lng: ${otherLocation['lng']})')
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      (otherLocation['lat'] != null && otherLocation['lng'] != null)
+                        ? '${loc.locationShared} (Lat: ${otherLocation['lat']}, Lng: ${otherLocation['lng']})'
+                        : loc.locationNotShared
+                    ),
+                  ),
+                  if (googleMapsUrl != null)
+                    IconButton(
+                      icon: const Icon(Icons.map, color: Colors.blue),
+                      tooltip: 'Open in Maps',
+                      onPressed: () async {
+                        // Defensive: Only run if googleMapsUrl is not null and not empty
+                        if (googleMapsUrl != null && googleMapsUrl.isNotEmpty) {
+                          print('To open in browser: \$BROWSER "$googleMapsUrl"');
+                        }
+                      },
+                    ),
+                ],
+              )
             else
               Text(loc.locationNotShared),
             const SizedBox(height: 12),
