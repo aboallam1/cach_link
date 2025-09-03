@@ -16,7 +16,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
   bool _sharingLocation = false;
   int _remainingSeconds = 60;
   late final Stopwatch _stopwatch;
-  late final Ticker _ticker;
+  late final AgreementTicker _ticker; // Use the renamed ticker class
   bool _canLeave = false;
   bool _showCancel = true;
 
@@ -24,7 +24,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
   void initState() {
     super.initState();
     _stopwatch = Stopwatch()..start();
-    _ticker = Ticker(_onTick)..start();
+    _ticker = AgreementTicker(_onTick)..start(); // Use renamed ticker
   }
 
   void _onTick(Duration elapsed) {
@@ -533,10 +533,11 @@ class _AgreementScreenState extends State<AgreementScreen> {
 }
 
 // Helper ticker for countdown
-class Ticker {
+class AgreementTicker {
   final void Function(Duration) onTick;
   bool _running = false;
-  Ticker(this.onTick);
+
+  AgreementTicker(this.onTick);
 
   void start() {
     if (_running) return;
@@ -544,25 +545,6 @@ class Ticker {
     _tick();
   }
 
-  void stop() {
-    _running = false;
-  }
-
-  void _tick() async {
-    Duration elapsed = Duration.zero;
-    while (_running && elapsed.inSeconds < 61) {
-      await Future.delayed(const Duration(seconds: 1));
-      if (_running) {
-        elapsed += const Duration(seconds: 1);
-        onTick(elapsed);
-      }
-    }
-  }
-
-  void dispose() {
-    _running = false;
-  }
-}
   void stop() {
     _running = false;
   }
