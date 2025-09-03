@@ -173,7 +173,10 @@ class _MatchScreenState extends State<MatchScreen> {
       if (expiresAt == null || expiresAt.isBefore(now)) continue; // skip expired
 
       final loc = data['location'];
-      final d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+      double d = 0.0;
+      if (_myLoc != null && loc != null && loc['lat'] != null && loc['lng'] != null) {
+        d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+      }
       if (d <= _searchRadius) {
         candidates.add(doc);
       }
@@ -185,7 +188,10 @@ class _MatchScreenState extends State<MatchScreen> {
     for (var doc in candidates) {
       final data = doc.data() as Map<String, dynamic>;
       final loc = data['location'];
-      final d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+      double d = double.infinity;
+      if (_myLoc != null && loc != null && loc['lat'] != null && loc['lng'] != null) {
+        d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+      }
       if (d < minDist) {
         minDist = d;
         closestByGps = doc;
@@ -460,7 +466,10 @@ class _MatchScreenState extends State<MatchScreen> {
                         if (!snap.hasData) return ListTile(title: Text(loc.waitingForOther));
                         final user = snap.data!;
                         final locData = txData['location'];
-                        final dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
+                        double dist = 0.0;
+                        if (_myLoc != null && locData != null && locData['lat'] != null && locData['lng'] != null) {
+                          dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
+                        }
 
                         // If there is an exchange request from the other party
                         if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
