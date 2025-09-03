@@ -71,63 +71,86 @@ class _HomeScreenState extends State<HomeScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 220,
-              height: 100,
-              child: Card(
-                color: const Color(0xFFE53935),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 6,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).pushNamed(
-                    '/transaction',
-                    arguments: {'transactionType': 'Deposit'},
-                  ),
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children:  [
-                        const Icon(Icons.credit_card, color: Colors.white, size: 32),
-                        const SizedBox(width: 16),
-                        Text(loc.deposit, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                      ],
+        child: FutureBuilder<QuerySnapshot>(
+          future: FirebaseFirestore.instance
+              .collection('transactions')
+              .where('userId', isEqualTo: FirebaseAuth.instance.currentUser!.uid)
+              .where('status', whereIn: ['pending', 'requested', 'accepted'])
+              .limit(1)
+              .get(),
+          builder: (context, snapshot) {
+            final hasActiveTx = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 220,
+                  height: 100,
+                  child: Card(
+                    color: const Color(0xFFE53935),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 6,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: hasActiveTx
+                          ? null
+                          : () => Navigator.of(context).pushNamed(
+                              '/transaction',
+                              arguments: {'transactionType': 'Deposit'},
+                            ),
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.credit_card, color: Colors.white, size: 32),
+                            const SizedBox(width: 16),
+                            Text(loc.deposit, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: 220,
-              height: 100,
-              child: Card(
-                color: const Color(0xFFE53935),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 6,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).pushNamed(
-                    '/transaction',
-                    arguments: {'transactionType': 'Withdraw'},
-                  ),
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children:  [
-                        const Icon(Icons.attach_money, color: Colors.white, size: 32),
-                        const SizedBox(width: 16),
-                        Text(loc.withdraw, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                      ],
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: 220,
+                  height: 100,
+                  child: Card(
+                    color: const Color(0xFFE53935),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 6,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: hasActiveTx
+                          ? null
+                          : () => Navigator.of(context).pushNamed(
+                              '/transaction',
+                              arguments: {'transactionType': 'Withdraw'},
+                            ),
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.attach_money, color: Colors.white, size: 32),
+                            const SizedBox(width: 16),
+                            Text(loc.withdraw, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
+                if (hasActiveTx)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Text(
+                      "You already have an active transaction.",
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -135,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: const Color(0xFFE53935),
         unselectedItemColor: Colors.grey,
         onTap: _onNavTap,
-        items:  [
+        items: [
           BottomNavigationBarItem(icon: const Icon(Icons.home), label: loc.home),
           BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.profile),
           BottomNavigationBarItem(icon: const Icon(Icons.history), label: loc.history),
