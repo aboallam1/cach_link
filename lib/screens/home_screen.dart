@@ -131,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 // Program name and logo above timer
                 Padding(
-                  padding: const EdgeInsets.only(top: 24, bottom: 8),
+                  padding: const EdgeInsets.only(top: 24, bottom: 125),
                   child: Column(
                     children: [
                       Text(
