@@ -208,7 +208,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     final loc = AppLocalizations.of(context)!;
     if (_type == null || _amountController.text.isEmpty || _location == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.noTransactions)),
+        SnackBar(content: Text(loc.locationNotShared)),
       );
       return;
     }
