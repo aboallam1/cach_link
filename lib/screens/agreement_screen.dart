@@ -19,6 +19,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
   late final AgreementTicker _ticker; // Use the renamed ticker class
   bool _canLeave = false;
   bool _showCancel = true;
+  bool _navigatedToRating = false; // prevent duplicate navigation
 
   @override
   void initState() {
@@ -132,30 +133,28 @@ class _AgreementScreenState extends State<AgreementScreen> {
 
     final myFlag = iAmDeposit ? 'instapayConfirmed' : 'cashConfirmed';
 
+    // set this user's confirmation flag
     await FirebaseFirestore.instance
         .collection('transactions')
         .doc(myTxId)
         .update({myFlag: true});
 
-    final mySnap = await FirebaseFirestore.instance
-        .collection('transactions')
-        .doc(myTxId)
-        .get();
-    final otherSnap = await FirebaseFirestore.instance
-        .collection('transactions')
-        .doc(otherTxId)
-        .get();
+    // fetch fresh snapshots once
+    final mySnap = await FirebaseFirestore.instance.collection('transactions').doc(myTxId).get();
+    final otherSnap = await FirebaseFirestore.instance.collection('transactions').doc(otherTxId).get();
 
-    final myData = mySnap.data() as Map<String, dynamic>;
-    final otherData = otherSnap.data() as Map<String, dynamic>;
+    final myData = mySnap.data() as Map<String, dynamic>? ?? {};
+    final otherData = otherSnap.data() as Map<String, dynamic>? ?? {};
 
     final instapayConfirmed =
-        (myData['instapayConfirmed'] == true) ||
-            (otherData['instapayConfirmed'] == true);
-    final cashConfirmed = (myData['cashConfirmed'] == true) ||
+        (myData['instapayConfirmed'] == true) &&
+        (otherData['instapayConfirmed'] == true);
+    final cashConfirmed =
+        (myData['cashConfirmed'] == true) &&
         (otherData['cashConfirmed'] == true);
 
     if (instapayConfirmed && cashConfirmed) {
+      // both sides confirmed -> mark completed for both tx docs
       await _setBothTxFields(
         myTxId: myTxId,
         otherTxId: otherTxId,
@@ -165,23 +164,39 @@ class _AgreementScreenState extends State<AgreementScreen> {
         },
       );
 
-      final otherUserId = otherData['userId'];
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/rating', arguments: {
-        'otherUserId': otherUserId,
-      });
+      // navigate current user immediately to rating
+      final otherUserId = otherData['userId'] as String?;
+      if (mounted) {
+        _navigatedToRating = true;
+        if (otherUserId != null) {
+          Navigator.of(context).pushReplacementNamed('/rating', arguments: {
+            'otherUserId': otherUserId,
+          });
+        } else {
+          // fallback: try to read partner tx userId
+          final partnerSnap = await FirebaseFirestore.instance.collection('transactions').doc(otherTxId).get();
+          final partnerUserId = (partnerSnap.data() as Map<String, dynamic>?)?['userId'] as String?;
+          if (partnerUserId != null) {
+            Navigator.of(context).pushReplacementNamed('/rating', arguments: {
+              'otherUserId': partnerUserId,
+            });
+          }
+        }
+      }
     } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(iAmDeposit
-              ? 'Waiting for cash confirmation from the other party.'
-              : 'Waiting for Instapay confirmation from the other party.'),
-        ),
-      );
+      // keep the button disabled for this user until other confirms
+      if (mounted) setState(() => _busy = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(iAmDeposit
+                ? 'Waiting for cash confirmation from the other party.'
+                : 'Waiting for Instapay confirmation from the other party.'),
+          ),
+        );
+      }
     }
-
-    if (mounted) setState(() => _busy = false);
+    // do not re-enable _busy here; navigation or stream update will change UI
   }
 
   @override
@@ -216,6 +231,57 @@ class _AgreementScreenState extends State<AgreementScreen> {
                 body: Center(child: Text(loc.noTransactions)));
           }
           final myData = myDoc.data() as Map<String, dynamic>;
+          // If transaction already completed, navigate to rating once
+          if (myData['status'] == 'completed' && !_navigatedToRating) {
+            // set guard early to avoid duplicate navigations
+            _navigatedToRating = true;
+            Future.microtask(() async {
+              String? partnerTxId;
+              try {
+                partnerTxId = (myData['partnerTxId'] != null && myData['partnerTxId'] is String)
+                    ? myData['partnerTxId'] as String
+                    : null;
+              } catch (_) {
+                partnerTxId = null;
+              }
+
+              String? otherUserId;
+              if (partnerTxId != null && partnerTxId.isNotEmpty) {
+                try {
+                  final partnerSnap = await FirebaseFirestore.instance
+                      .collection('transactions')
+                      .doc(partnerTxId)
+                      .get();
+                  otherUserId = (partnerSnap.data() as Map<String, dynamic>?)?['userId'] as String?;
+                } catch (_) {
+                  otherUserId = null;
+                }
+              }
+
+              // fallback: try argument otherTxIdArg
+              if (otherUserId == null && otherTxIdArg != null && otherTxIdArg is String) {
+                try {
+                  final otherSnap = await FirebaseFirestore.instance
+                      .collection('transactions')
+                      .doc(otherTxIdArg)
+                      .get();
+                  otherUserId = (otherSnap.data() as Map<String, dynamic>?)?['userId'] as String?;
+                } catch (_) {
+                  otherUserId = null;
+                }
+              }
+
+              if (otherUserId != null && mounted) {
+                Navigator.of(context).pushReplacementNamed('/rating', arguments: {'otherUserId': otherUserId});
+              } else {
+                // If we couldn't resolve partner user id, still pop to matches to avoid blocking UI
+                if (mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Navigator.of(context).pushReplacementNamed('/match');
+                }
+              }
+            });
+          }
           final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
           final otherTxId = otherTxIdArg ?? (myData['partnerTxId'] as String?);
@@ -345,7 +411,43 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             // Show details if accepted or completed
                             if ((status == 'accepted' || status == 'completed' ||
                                  otherStatus == 'accepted' || otherStatus == 'completed') && otherUser.isNotEmpty)
-                              _detailsCard(otherUser, otherSharedLocation, loc),
+                              ...[
+                                _detailsCard(otherUser, otherSharedLocation, loc),
+                                if (iAmRequester)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        icon: Icon(
+                                          iAmDeposit ? Icons.send : Icons.attach_money,
+                                          color: Colors.white,
+                                        ),
+                                        label: Text(
+                                          iAmDeposit
+                                              ? loc.confirmCashReceived
+                                              : loc.confirmInstapayTransfer,
+                                              
+                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green[700],
+                                          minimumSize: const Size.fromHeight(48),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        onPressed: _busy
+                                            ? null
+                                            : () => _confirmStep(
+                                                  myTxId: myTxId,
+                                                  otherTxId: otherTxId,
+                                                  iAmDeposit: iAmDeposit,
+                                                ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
 
                             // Accept / Decline flow
                             if (status == 'requested' && otherStatus != 'accepted' && iAmRequester) ...[
@@ -379,27 +481,43 @@ class _AgreementScreenState extends State<AgreementScreen> {
                               ),
                             ],
 
-                            // Confirmation buttons
-                            if (status == 'accepted' || status == 'completed')
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(48),
-                                  backgroundColor: Colors.green[700],
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
+                            // Confirmation buttons for receiver (not requester)
+                            if ((status == 'accepted' || status == 'completed') && !iAmRequester) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: Icon(
+                                      otherTxData?['type'] == 'Deposit'
+                                          ? Icons.send
+                                          : Icons.attach_money,
+                                      color: Colors.white,
+                                    ),
+                                    label: Text(
+                                      otherTxData?['type'] == 'Deposit'
+                                          ? loc.confirmTransfer
+                                          : loc.confirmCashReceived,
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green[700],
+                                      minimumSize: const Size.fromHeight(48),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _confirmStep(
+                                              myTxId: myTxId,
+                                              otherTxId: otherTxId,
+                                              iAmDeposit: otherTxData?['type'] == 'Deposit',
+                                            ),
+                                  ),
                                 ),
-                                icon: Icon(iAmDeposit ? Icons.send : Icons.attach_money),
-                                onPressed: _busy
-                                    ? null
-                                    : () => _confirmStep(
-                                          myTxId: myTxId,
-                                          otherTxId: otherTxId,
-                                          iAmDeposit: iAmDeposit,
-                                        ),
-                                label: Text(iAmDeposit
-                                    ? loc.instapayTransferred
-                                    : loc.cashReceived),
                               ),
+                            ],
 
                             if (status == 'completed')
                               Center(
@@ -489,6 +607,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                     ),
                 ],
               )
+              
             else
               Text(loc.locationNotShared),
             const SizedBox(height: 12),

@@ -90,7 +90,8 @@ class AppLocalizations {
       'commentOptional': 'Comment (optional)',
       'submitRating': 'Submit Rating',
       'confirmCashReceived': 'Confirm Cash Received',
-      'confirmInstapayTransfer': 'Confirm Transfer',
+      'confirmInstapayTransfer': 'Confirm Instapay Transfer',
+      'confirmTransfer': 'Confirm Transfer',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -164,7 +165,8 @@ class AppLocalizations {
       'commentOptional': 'تعليق (اختياري)',
       'submitRating': 'إرسال التقييم',
       'confirmCashReceived': 'تأكيد استلام النقود',
-      'confirmInstapayTransfer': 'تأكيد التحويل ',
+      'confirmInstapayTransfer': 'تأكيد تحويل إنستا باي',
+      'confirmTransfer': 'تأكيد التحويل',
     },
   };
 
@@ -248,10 +250,10 @@ class AppLocalizations {
   String get submitRating => _t('submitRating');
   String get confirmCashReceived => _t('confirmCashReceived');
   String get confirmInstapayTransfer => _t('confirmInstapayTransfer');
+  String get confirmTransfer => _t('confirmTransfer');
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -266,5 +268,5 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool shouldReload(_AppLocalizationsDelegate old) => false;
+  bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) => false;
 }

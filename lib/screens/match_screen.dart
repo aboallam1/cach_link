@@ -466,24 +466,30 @@ class _MatchScreenState extends State<MatchScreen> {
                         // If there is an exchange request from the other party
                         if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
                           return Card(
-                            child: ListTile(
-                              title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
-                              subtitle: Text(
-                                '${loc.requested}\n'
-                                '${loc.amount}: ${txData['amount']} | '
-                                '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
-                                'Rating: ${user['rating']}',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.check, color: Colors.green),
-                                    onPressed: () => _respondToRequest(tx, true),
+                                  CircleAvatar(radius: 28, backgroundColor: Colors.blueGrey.shade50, child: Icon(Icons.person, color: Colors.blueGrey)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 6),
+                                        Text('${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', style: TextStyle(color: Colors.grey[700])),
+                                      ],
+                                    ),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.close, color: Colors.red),
-                                    onPressed: () => _respondToRequest(tx, false),
+                                  Column(
+                                    children: [
+                                      IconButton(icon: const Icon(Icons.check, color: Colors.green), onPressed: () => _respondToRequest(tx, true)),
+                                      IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => _respondToRequest(tx, false)),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -493,48 +499,52 @@ class _MatchScreenState extends State<MatchScreen> {
 
                         // Normal cards (can send Exchange Request)
                         return Card(
-                          child: ListTile(
-                            title: Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})'),
-                            subtitle: Text(
-                              '${loc.amount}: ${txData['amount']} | '
-                              '${loc.distance}: ~${dist.toStringAsFixed(2)} km | '
-                              '${loc.rating}: ${user['rating']}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
                               children: [
-                                ElevatedButton(
-                                  onPressed: _lockActive &&
-                                          _lockUntil != null &&
-                                          DateTime.now().isBefore(_lockUntil!)
-                                      ? null
-                                      : () => _sendExchangeRequest(tx, user.id),
-                                  child: Text(_lockActive &&
-                                          _lockUntil != null &&
-                                          DateTime.now().isBefore(_lockUntil!)
-                                      ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)"
-                                      : "Send Request"),
+                                CircleAvatar(
+                                  radius: 28,
+                                  backgroundColor: _myLoc != null ? Colors.green.shade50 : Colors.grey.shade200,
+                                  child: Icon(
+                                    (txData?['type'] as String?) == 'Deposit' ? Icons.monetization_on : Icons.account_balance_wallet,
+                                    color: Colors.green,
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
-                                OutlinedButton(
-                                  onPressed: _lockActive &&
-                                          _lockUntil != null &&
-                                          DateTime.now().isBefore(_lockUntil!)
-                                      ? null
-                                      : () {
-                                          // Cancel logic: set status to cancelled
-                                          if (_myTx != null) {
-                                            FirebaseFirestore.instance
-                                                .collection('transactions')
-                                                .doc(_myTx!.id)
-                                                .update({'status': 'cancelled'});
-                                            setState(() {
-                                              _lockActive = false;
-                                              _lockUntil = null;
-                                            });
-                                          }
-                                        },
-                                  child: const Text("Cancel Request"),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 6),
+                                      Text('${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', style: TextStyle(color: Colors.grey[700])),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? null : () => _sendExchangeRequest(tx, user.id),
+                                      child: Text(_lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)" : loc.exchangeRequestFrom),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    OutlinedButton(
+                                      onPressed: _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? null : () {
+                                        if (_myTx != null) {
+                                          FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id).update({'status': 'cancelled'});
+                                          setState(() {
+                                            _lockActive = false;
+                                            _lockUntil = null;
+                                          });
+                                        }
+                                      },
+                                      child: Text(loc.cancel),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

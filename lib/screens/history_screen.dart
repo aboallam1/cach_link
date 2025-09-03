@@ -335,59 +335,87 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   data['exchangeRequestedBy'] != user.uid;
 
               return Card(
-                color: _cardColorByStatus(status),
-                shape: RoundedRectangleBorder(
+                color: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 4,
+                margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+                child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        type == 'Deposit' ? Colors.green : Colors.red,
-                    child: Icon(
-                      type == 'Deposit'
-                          ? Icons.arrow_downward
-                          : Icons.arrow_upward,
-                      color: Colors.white,
-                    ),
-                  ),
-                  title: Text(
-                    "${_localizedType(type, loc)} - \$${(amount as num).toStringAsFixed(2)}",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text("${loc.status}: ${_localizedStatus(status, loc)}"),
-                  trailing: const Icon(Icons.chevron_right),
                   onTap: status == 'pending'
                       ? () async {
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
                               title: Text(loc.cancel),
-                              content: Text(
-                                  "${loc.cancel} this pending transaction?"),
+                              content: Text("${loc.cancel} this pending transaction?"),
                               actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
-                                  child: Text(loc.close),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
-                                  child: Text(loc.cancel),
-                                ),
+                                TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(loc.close)),
+                                TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text(loc.cancel)),
                               ],
                             ),
                           );
                           if (confirm == true) {
-                            await FirebaseFirestore.instance
-                                .collection('transactions')
-                                .doc(doc.id)
-                                .update({'status': 'canceled'});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${loc.canceled}!')),
-                            );
+                            await FirebaseFirestore.instance.collection('transactions').doc(doc.id).update({'status': 'canceled'});
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${loc.canceled}!')));
                           }
                         }
                       : () => _showTransactionDetails(data),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: type == 'Deposit' ? Colors.green.shade600 : Colors.red.shade600,
+                          child: Icon(
+                            type == 'Deposit' ? Icons.arrow_downward : Icons.arrow_upward,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _localizedType(type, loc),
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "${loc.amount}: \$${(amount as num).toStringAsFixed(2)} • ${loc.status}: ${_localizedStatus(status, loc)}",
+                                style: TextStyle(color: Colors.grey[700]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _cardColorByStatus(status),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                "\$${(amount as num).toStringAsFixed(0)}",
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Chip(
+                              label: Text(_localizedStatus(status, loc)),
+                              backgroundColor: Colors.grey[100],
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
