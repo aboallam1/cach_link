@@ -131,30 +131,36 @@ class _AgreementScreenState extends State<AgreementScreen> {
   }) async {
     setState(() => _busy = true);
 
-    final myFlag = iAmDeposit ? 'instapayConfirmed' : 'cashConfirmed';
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    
+    // Determine which confirmation flag to set based on user type
+    final myConfirmationFlag = iAmDeposit ? 'instapayConfirmed' : 'cashConfirmed';
 
-    // set this user's confirmation flag
+    // Set this user's confirmation flag
     await FirebaseFirestore.instance
         .collection('transactions')
         .doc(myTxId)
-        .update({myFlag: true});
+        .update({myConfirmationFlag: true});
 
-    // fetch fresh snapshots once
+    // Also set the flag on the partner transaction
+    await FirebaseFirestore.instance
+        .collection('transactions')
+        .doc(otherTxId)
+        .update({myConfirmationFlag: true});
+
+    // Fetch both transactions to check if both sides are confirmed
     final mySnap = await FirebaseFirestore.instance.collection('transactions').doc(myTxId).get();
     final otherSnap = await FirebaseFirestore.instance.collection('transactions').doc(otherTxId).get();
 
     final myData = mySnap.data() as Map<String, dynamic>? ?? {};
     final otherData = otherSnap.data() as Map<String, dynamic>? ?? {};
 
-    final instapayConfirmed =
-        (myData['instapayConfirmed'] == true) &&
-        (otherData['instapayConfirmed'] == true);
-    final cashConfirmed =
-        (myData['cashConfirmed'] == true) &&
-        (otherData['cashConfirmed'] == true);
+    // Check if both confirmations are complete
+    final instapayConfirmed = (myData['instapayConfirmed'] == true) || (otherData['instapayConfirmed'] == true);
+    final cashConfirmed = (myData['cashConfirmed'] == true) || (otherData['cashConfirmed'] == true);
 
     if (instapayConfirmed && cashConfirmed) {
-      // both sides confirmed -> mark completed for both tx docs
+      // Both sides confirmed -> mark completed for both transactions
       await _setBothTxFields(
         myTxId: myTxId,
         otherTxId: otherTxId,
@@ -164,39 +170,36 @@ class _AgreementScreenState extends State<AgreementScreen> {
         },
       );
 
-      // navigate current user immediately to rating
+      // Get the other user's ID for rating
       final otherUserId = otherData['userId'] as String?;
-      if (mounted) {
+      
+      if (mounted && !_navigatedToRating) {
         _navigatedToRating = true;
+        setState(() => _busy = false);
+        
         if (otherUserId != null) {
           Navigator.of(context).pushReplacementNamed('/rating', arguments: {
             'otherUserId': otherUserId,
           });
         } else {
-          // fallback: try to read partner tx userId
-          final partnerSnap = await FirebaseFirestore.instance.collection('transactions').doc(otherTxId).get();
-          final partnerUserId = (partnerSnap.data() as Map<String, dynamic>?)?['userId'] as String?;
-          if (partnerUserId != null) {
-            Navigator.of(context).pushReplacementNamed('/rating', arguments: {
-              'otherUserId': partnerUserId,
-            });
-          }
+          // Fallback: navigate to history if we can't get other user ID
+          Navigator.of(context).pushReplacementNamed('/history');
         }
       }
     } else {
-      // keep the button disabled for this user until other confirms
-      if (mounted) setState(() => _busy = true);
+      // One side confirmed, waiting for the other
+      setState(() => _busy = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(iAmDeposit
                 ? 'Waiting for cash confirmation from the other party.'
                 : 'Waiting for Instapay confirmation from the other party.'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
     }
-    // do not re-enable _busy here; navigation or stream update will change UI
   }
 
   @override
@@ -481,6 +484,47 @@ class _AgreementScreenState extends State<AgreementScreen> {
                               ),
                             ],
 
+                            // Confirmation buttons for requester
+                            if ((status == 'accepted' || status == 'completed') && iAmRequester) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: Icon(
+                                      iAmDeposit ? Icons.check_circle : Icons.attach_money,
+                                      color: Colors.white,
+                                    ),
+                                    label: Text(
+                                      iAmDeposit
+                                          ? loc.confirmCashReceived
+                                          : loc.confirmInstapayTransfer,
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: (myData['instapayConfirmed'] == true && iAmDeposit) || 
+                                                     (myData['cashConfirmed'] == true && !iAmDeposit)
+                                          ? Colors.grey
+                                          : Colors.green[700],
+                                      minimumSize: const Size.fromHeight(48),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: _busy || 
+                                              (myData['instapayConfirmed'] == true && iAmDeposit) || 
+                                              (myData['cashConfirmed'] == true && !iAmDeposit)
+                                        ? null
+                                        : () => _confirmStep(
+                                              myTxId: myTxId,
+                                              otherTxId: otherTxId,
+                                              iAmDeposit: iAmDeposit,
+                                            ),
+                                  ),
+                                ),
+                              ),
+                            ],
+
                             // Confirmation buttons for receiver (not requester)
                             if ((status == 'accepted' || status == 'completed') && !iAmRequester) ...[
                               Padding(
@@ -489,30 +533,33 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     icon: Icon(
-                                      otherTxData?['type'] == 'Deposit'
-                                          ? Icons.send
-                                          : Icons.attach_money,
+                                      !iAmDeposit ? Icons.check_circle : Icons.attach_money,
                                       color: Colors.white,
                                     ),
                                     label: Text(
-                                      otherTxData?['type'] == 'Deposit'
-                                          ? loc.confirmTransfer
-                                          : loc.confirmCashReceived,
+                                      !iAmDeposit
+                                          ? loc.confirmCashReceived
+                                          : loc.confirmInstapayTransfer,
                                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green[700],
+                                      backgroundColor: (myData['cashConfirmed'] == true && !iAmDeposit) || 
+                                                     (myData['instapayConfirmed'] == true && iAmDeposit)
+                                          ? Colors.grey
+                                          : Colors.green[700],
                                       minimumSize: const Size.fromHeight(48),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    onPressed: _busy
+                                    onPressed: _busy || 
+                                              (myData['cashConfirmed'] == true && !iAmDeposit) || 
+                                              (myData['instapayConfirmed'] == true && iAmDeposit)
                                         ? null
                                         : () => _confirmStep(
                                               myTxId: myTxId,
                                               otherTxId: otherTxId,
-                                              iAmDeposit: otherTxData?['type'] == 'Deposit',
+                                              iAmDeposit: iAmDeposit,
                                             ),
                                   ),
                                 ),
