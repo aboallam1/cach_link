@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:cashlink/l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -86,6 +87,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  Future<void> _openMaps(String? url) async {
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.parse(url);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.openInMaps)));
+    }
+  }
+
   void _showTransactionDetails(Map<String, dynamic> data) async {
     final loc = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser!;
@@ -125,7 +136,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
       showDialog(
         context: context,
-        builder: (_) => Dialog(
+        builder: (context) => Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
             padding: const EdgeInsets.all(20),
@@ -166,8 +177,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           _infoRow(loc.rating, myRating != null ? myRating.toString() : loc.noTransactions),
                         if (data['status'] == 'accepted' || data['status'] == 'completed')
                           _divider(),
-                        if (data['sharedLocation'] != null)
-                          _infoRow(loc.locationShared, "Lat: ${data['sharedLocation']['lat']}, Lng: ${data['sharedLocation']['lng']}"),
+                        if (data['sharedLocation'] != null) ...[
+                          _divider(),
+                          GestureDetector(
+                            onTap: () {
+                              final lat = data['sharedLocation']['lat'];
+                              final lng = data['sharedLocation']['lng'];
+                              if (lat != null && lng != null) {
+                                final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+                                _openMaps(url);
+                              }
+                            },
+                            child: _infoRow(loc.locationShared, "Lat: ${data['sharedLocation']['lat']}, Lng: ${data['sharedLocation']['lng']}"),
+                          ),
+                        ],
                       ],
                     ),
                   const SizedBox(height: 20),
@@ -192,7 +215,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     // For other statuses, show a simplified dialog
     showDialog(
       context: context,
-      builder: (_) => Dialog(
+      builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
           padding: const EdgeInsets.all(20),
@@ -228,6 +251,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     _divider(),
                     _infoRow(loc.distance, "~${distance.toStringAsFixed(2)} km"),
                     _divider(),
+                    if (data['sharedLocation'] != null) ...[
+                      GestureDetector(
+                        onTap: () {
+                          final lat = data['sharedLocation']['lat'];
+                          final lng = data['sharedLocation']['lng'];
+                          if (lat != null && lng != null) {
+                            final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+                            _openMaps(url);
+                          }
+                        },
+                        child: _infoRow(loc.locationShared, "Lat: ${data['sharedLocation']['lat']}, Lng: ${data['sharedLocation']['lng']}"),
+                      ),
+                      _divider(),
+                    ],
                   ],
                 ),
               const SizedBox(height: 20),
@@ -361,7 +398,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     showDialog(
       context: context,
-      builder: (_) => Dialog(
+      builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
           padding: const EdgeInsets.all(20),
@@ -417,6 +454,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         if (distance > 0) ...[
                           _divider(),
                           _infoRow(loc.distance, "~${distance.toStringAsFixed(2)} km"),
+                        ],
+                        if (data['sharedLocation'] != null) ...[
+                          _divider(),
+                          GestureDetector(
+                            onTap: () {
+                              final lat = data['sharedLocation']['lat'];
+                              final lng = data['sharedLocation']['lng'];
+                              if (lat != null && lng != null) {
+                                final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+                                _openMaps(url);
+                              }
+                            },
+                            child: _infoRow(loc.locationShared, "Lat: ${data['sharedLocation']['lat']}, Lng: ${data['sharedLocation']['lng']}"),
+                          ),
                         ],
                       ],
                     ),
@@ -489,7 +540,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         const SizedBox(height: 12),
                         _infoRow(loc.yourRating ?? "Your Rating", myRating != null ? "${myRating.toStringAsFixed(1)} ⭐" : (loc.notRatedYet ?? "Not rated yet")),
                         _divider(),
-                        _infoRow(loc.theirRating ?? "Their Rating", theirRating != null ? "${theirRating.toStringAsFixed(1)} ⭐" : (loc.notRatedYet ?? "Not rated yet")),
                       ],
                     ),
                   ),

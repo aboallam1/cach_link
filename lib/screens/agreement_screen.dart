@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:location/location.dart';
 import 'package:cashlink/l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 class AgreementScreen extends StatefulWidget {
   const AgreementScreen({super.key});
@@ -93,7 +95,15 @@ class _AgreementScreenState extends State<AgreementScreen> {
     Navigator.pop(context);
   }
 
-  Future<void> _shareMyLocation(String myTxId) async {
+  Future<void> _shareMyLocation(String? myTxId) async {
+    if (myTxId == null || myTxId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.noTransactions)), // reuse an existing localized message
+      );
+      return;
+    }
+
     setState(() => _sharingLocation = true);
     final loc = Location();
     final permission = await loc.requestPermission();
@@ -199,6 +209,16 @@ class _AgreementScreenState extends State<AgreementScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _openMaps(String? url) async {
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.parse(url);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.openInMaps)));
     }
   }
 
@@ -415,7 +435,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             if ((status == 'accepted' || status == 'completed' ||
                                  otherStatus == 'accepted' || otherStatus == 'completed') && otherUser.isNotEmpty)
                               ...[
-                                _detailsCard(otherUser, otherSharedLocation, loc),
+                                _detailsCard(otherUser, otherSharedLocation, loc, myTxId),
                                 if (iAmRequester)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 16),
@@ -602,7 +622,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
     );
   }
 
-  Widget _detailsCard(Map<String, dynamic> otherUser, Map<String, dynamic>? otherLocation, AppLocalizations loc) {
+  Widget _detailsCard(Map<String, dynamic> otherUser, Map<String, dynamic>? otherLocation, AppLocalizations loc, String? myTxId) {
     String? googleMapsUrl;
     if (otherLocation != null &&
         otherLocation['lat'] != null &&
@@ -629,37 +649,80 @@ class _AgreementScreenState extends State<AgreementScreen> {
             const SizedBox(height: 8),
             Text('${loc.name}: ${otherUser['name'] ?? '-'}'),
             Text('${loc.gender}: ${otherUser['gender'] ?? '-'}'),
-            Text('${loc.phone}: ${otherUser['phone'] ?? '-'}'),
+            // phone: tappable to call + copy to clipboard
+            Builder(builder: (ctx) {
+              final phone = otherUser['phone'] as String?;
+              if (phone == null || phone.isEmpty) {
+                return Text('${loc.phone}: -');
+              }
+              Future<void> _callAndCopy(String number) async {
+                // launch dialer
+                try {
+                  await launchUrl(Uri.parse('tel:$number'));
+                } catch (_) {}
+                // copy to clipboard
+                await Clipboard.setData(ClipboardData(text: number));
+                if (mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('Copied $number to clipboard')),
+                  );
+                }
+              }
+
+              return Row(
+                children: [
+                  Text('${loc.phone}: '),
+                  InkWell(
+                    onTap: () => _callAndCopy(phone),
+                    child: Text(
+                      phone,
+                      style: const TextStyle(
+                        decoration: TextDecoration.underline,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 18, color: Colors.blueGrey),
+                    onPressed: () => _callAndCopy(phone),
+                    tooltip: 'Copy',
+                  ),
+                ],
+              );
+            }),
             Text('${loc.rating}: ${otherUser['rating'] ?? '-'}'),
             const Divider(),
             if (otherLocation != null)
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      (otherLocation['lat'] != null && otherLocation['lng'] != null)
-                        ? '${loc.locationShared} (${loc.latitude}: ${otherLocation['lat']}, ${loc.longitude}: ${otherLocation['lng']})'
-                        : loc.locationNotShared
+                    child: InkWell(
+                      onTap: googleMapsUrl != null ? () => _openMaps(googleMapsUrl) : null,
+                      child: Text(
+                        (otherLocation['lat'] != null && otherLocation['lng'] != null)
+                          ? '${loc.locationShared} (${loc.latitude}: ${otherLocation['lat']}, ${loc.longitude}: ${otherLocation['lng']})'
+                          : loc.locationNotShared,
+                        style: googleMapsUrl != null
+                          ? const TextStyle(decoration: TextDecoration.underline, color: Colors.blue)
+                          : null,
+                      ),
                     ),
                   ),
                   if (googleMapsUrl != null)
                     IconButton(
                       icon: const Icon(Icons.map, color: Colors.blue),
                       tooltip: loc.openInMaps,
-                      onPressed: () {
-                        if (googleMapsUrl != null && googleMapsUrl.isNotEmpty) {
-                          print('Open maps: $googleMapsUrl');
-                        }
-                      },
+                      onPressed: () => _openMaps(googleMapsUrl),
                     ),
                 ],
               )
-              
             else
               Text(loc.locationNotShared),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: _sharingLocation ? null : () => _shareMyLocation(otherUser['id']),
+              onPressed: _sharingLocation ? null : () => _shareMyLocation(myTxId),
               icon: const Icon(Icons.location_on, color: Colors.blueGrey),
               label: _sharingLocation
                   ? Text(loc.sharing)
