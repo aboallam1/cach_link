@@ -3,9 +3,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:typed_data'; // added
-import 'package:cashlink/l10n/app_localizations.dart';
+import 'dart:typed_data'; // added earlier
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
+import 'package:cashlink/l10n/app_localizations.dart';
+
+// Dropbox access token. Don't hardcode in production.
+// Pass via --dart-define=DROPBOX_TOKEN=xxxx when running: flutter run --dart-define=DROPBOX_TOKEN=xxxx
+const String _kDropboxToken = String.fromEnvironment(
+  'DROPBOX_TOKEN',
+  defaultValue: '<YOUR_DROPBOX_ACCESS_TOKEN>',
+);
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -82,12 +91,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Placeholder for upload logic. You must implement actual upload to Firebase Storage.
-  Future<String?> _uploadImage(File imageFile, String path) async {
-    // On web, File operations are not supported, so skip or use picked.path as a URL if you have a web upload solution.
-    if (kIsWeb) return null;
-    // TODO: Implement upload to Firebase Storage and return the download URL for mobile/desktop.
-    return null;
+  // Upload bytes to Dropbox (used by web & mobile)
+  Future<String?> _uploadToDropbox(Uint8List bytes, String dropboxPath) async {
+    if (_kDropboxToken == '<YOUR_DROPBOX_ACCESS_TOKEN>' || _kDropboxToken.isEmpty) {
+      debugPrint('Dropbox token not set. Provide via --dart-define=DROPBOX_TOKEN=...');
+      return null;
+    }
+    try {
+      final uploadUrl = Uri.parse('https://content.dropboxapi.com/2/files/upload');
+      final apiArg = jsonEncode({
+        'path': dropboxPath,
+        'mode': 'add',
+        'autorename': true,
+        'mute': false,
+      });
+      final res = await http.post(uploadUrl, headers: {
+        'Authorization': 'Bearer $_kDropboxToken',
+        'Content-Type': 'application/octet-stream',
+        'Dropbox-API-Arg': apiArg,
+      }, body: bytes);
+
+      if (res.statusCode != 200) {
+        debugPrint('Dropbox upload failed: ${res.statusCode} ${res.body}');
+        return null;
+      }
+
+      // Create shared link (returns url with ?dl=0). Convert to direct/raw if needed.
+      final shareUrl = Uri.parse('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings');
+      final shareRes = await http.post(shareUrl, headers: {
+        'Authorization': 'Bearer $_kDropboxToken',
+        'Content-Type': 'application/json',
+      }, body: jsonEncode({'path': dropboxPath}));
+
+      if (shareRes.statusCode == 200) {
+        final map = jsonDecode(shareRes.body) as Map<String, dynamic>;
+        var url = (map['url'] as String?) ?? '';
+        // convert ?dl=0 to ?raw=1 or ?dl=1 for direct download
+        if (url.contains('?dl=0')) url = url.replaceFirst('?dl=0', '?raw=1');
+        return url;
+      } else {
+        debugPrint('Dropbox share link failed: ${shareRes.statusCode} ${shareRes.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Upload to Dropbox error: $e');
+      return null;
+    }
+  }
+
+  // Helper for mobile File -> bytes -> uploadToDropbox
+  Future<String?> _uploadFile(File file, String dropboxPath) async {
+    try {
+      final bytes = await file.readAsBytes();
+      return await _uploadToDropbox(bytes, dropboxPath);
+    } catch (e) {
+      debugPrint('Read file failed: $e');
+      return null;
+    }
   }
 
   Future<void> _submitProfile() async {
@@ -97,12 +157,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String? userImageUrl = _userImageUrl;
     String? idImageUrl = _idImageUrl;
 
-    // Upload images if picked
-    if (_userImage != null) {
-      userImageUrl = await _uploadImage(_userImage!, 'users/${user.uid}/user.jpg');
-    }
-    if (_idImage != null) {
-      idImageUrl = await _uploadImage(_idImage!, 'users/${user.uid}/id.jpg');
+    // Upload images if picked (handle web bytes and mobile File) using Dropbox
+    final userPath = '/users/${user.uid}/user.jpg';
+    final idPath = '/users/${user.uid}/id.jpg';
+
+    if (kIsWeb) {
+      if (_userImageBytesWeb != null) {
+        final url = await _uploadToDropbox(_userImageBytesWeb!, userPath);
+        if (url != null) userImageUrl = url;
+      }
+      if (_idImageBytesWeb != null) {
+        final url = await _uploadToDropbox(_idImageBytesWeb!, idPath);
+        if (url != null) idImageUrl = url;
+      }
+    } else {
+      if (_userImage != null) {
+        final url = await _uploadFile(_userImage!, userPath);
+        if (url != null) userImageUrl = url;
+      }
+      if (_idImage != null) {
+        final url = await _uploadFile(_idImage!, idPath);
+        if (url != null) idImageUrl = url;
+      }
     }
 
     await FirebaseFirestore.instance.collection('users').doc(user.uid).set({

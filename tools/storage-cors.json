@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "http://localhost:33813",
+      "http://127.0.0.1:33813",
+      "http://localhost:5000",
+      "http://127.0.0.1:5000"
+    ],
+    "method": ["GET", "POST", "PUT", "HEAD", "DELETE", "OPTIONS"],
+    "responseHeader": ["Content-Type", "x-goog-resumable", "X-Firebase-Storage-Download-Token"],
+    "maxAgeSeconds": 3600
+  }
+]
