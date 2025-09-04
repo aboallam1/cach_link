@@ -307,6 +307,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             .update({'status': 'rejected'});
                         if (!mounted) return;
                         Navigator.of(context).pop();
+                        Navigator.of(context).pushReplacementNamed('/match');
                       },
                       child: Text(loc.reject, style: const TextStyle(fontSize: 16)),
                     ),

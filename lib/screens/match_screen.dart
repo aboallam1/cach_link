@@ -28,6 +28,7 @@ class _MatchScreenState extends State<MatchScreen> {
   Timer? _expiryTimer;
   Timer? _refreshTimer;
   Duration _remaining = const Duration(minutes: 30);
+  StreamSubscription<DocumentSnapshot>? _myTxListener;
 
   // Replace all _type, _amountController, _location with public fields or pass them as arguments.
   // Add these fields at the top of your _MatchScreenState if you want to access the last transaction request:
@@ -41,21 +42,55 @@ class _MatchScreenState extends State<MatchScreen> {
     _findMatches();
     _startExpiryTimer();
     _startAutoRefresh();
+
+    // Listen for status changes to "rejected" and redirect to match page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupRejectedListener();
+    });
+  }
+
+  void _setupRejectedListener() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    _myTxListener?.cancel();
+    FirebaseFirestore.instance
+        .collection('transactions')
+        .where('userId', isEqualTo: currentUser.uid)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get()
+        .then((txs) {
+      if (txs.docs.isNotEmpty) {
+        final txId = txs.docs.first.id;
+        _myTxListener = FirebaseFirestore.instance
+            .collection('transactions')
+            .doc(txId)
+            .snapshots()
+            .listen((doc) {
+          final data = doc.data() as Map<String, dynamic>?;
+          if (data != null && data['status'] == 'rejected') {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/match');
+            }
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _expiryTimer?.cancel();
     _refreshTimer?.cancel();
+    _myTxListener?.cancel();
     super.dispose();
   }
 
   void _startAutoRefresh() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted) {
-        _findMatches();
-      }
+      if (!mounted) return;
+      _findMatches();
     });
   }
 
@@ -84,6 +119,7 @@ class _MatchScreenState extends State<MatchScreen> {
               if (left.isNegative) {
                 timer.cancel();
                 _archiveTransaction();
+                if (!mounted) return;
                 setState(() {
                   _remaining = Duration.zero;
                 });
@@ -94,6 +130,7 @@ class _MatchScreenState extends State<MatchScreen> {
                   });
                 }
               } else {
+                if (!mounted) return;
                 setState(() {
                   _remaining = left;
                 });
@@ -115,6 +152,7 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _findMatches() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _noCandidates = false;
@@ -129,6 +167,7 @@ class _MatchScreenState extends State<MatchScreen> {
         .get();
 
     if (txs.docs.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _matches = [];
         _loading = false;
@@ -140,6 +179,7 @@ class _MatchScreenState extends State<MatchScreen> {
     final myData = _myTx!.data() as Map<String, dynamic>?;
 
     if (myData == null || !myData.containsKey('type') || !myData.containsKey('amount') || !myData.containsKey('location')) {
+      if (!mounted) return;
       setState(() {
         _matches = [];
         _loading = false;
@@ -152,11 +192,11 @@ class _MatchScreenState extends State<MatchScreen> {
     _myLoc = myData['location'];
     final oppType = myType == 'Deposit' ? 'Withdraw' : 'Deposit';
 
-    // Only show transactions that are pending and not expired
+    // Include both 'pending' and 'requested' transactions
     final candidatesSnap = await FirebaseFirestore.instance
         .collection('transactions')
         .where('type', isEqualTo: oppType)
-        .where('status', isEqualTo: 'pending')
+        .where('status', whereIn: ['pending', 'requested'])
         .get();
 
     List<DocumentSnapshot> candidates = [];
@@ -229,6 +269,7 @@ class _MatchScreenState extends State<MatchScreen> {
 
   Future<void> _expandSearch() async {
     if (_searchRadius < 50) {
+      if (!mounted) return;
       setState(() {
         _searchRadius += 10;
         _showSaveButton = true; // Show save button after expanding search
@@ -325,9 +366,17 @@ class _MatchScreenState extends State<MatchScreen> {
     } else {
       await txRef.update({'status': 'rejected'});
       // Unlock sender immediately
+      if (!mounted) return;
       setState(() {
         _lockActive = false;
         _lockUntil = null;
+      });
+      // Use microtask to ensure navigation after dialog closes
+      Future.microtask(() {
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          Navigator.of(context).pushReplacementNamed('/match');
+        }
       });
     }
   }
@@ -344,6 +393,7 @@ class _MatchScreenState extends State<MatchScreen> {
           .collection('transactions')
           .doc(_myTx!.id)
           .update({'searchRadius': _searchRadius});
+      if (!mounted) return;
       setState(() {
         _canLeave = true;
       });
@@ -363,6 +413,7 @@ class _MatchScreenState extends State<MatchScreen> {
     for (var doc in txSnap.docs) {
       await doc.reference.delete();
     }
+    if (!mounted) return;
     setState(() {
       _canLeave = true;
     });
@@ -516,8 +567,63 @@ class _MatchScreenState extends State<MatchScreen> {
                                   ),
                                   Column(
                                     children: [
-                                      IconButton(icon: const Icon(Icons.check, color: Colors.green), onPressed: () => _respondToRequest(tx, true)),
-                                      IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => _respondToRequest(tx, false)),
+                                      ElevatedButton(
+                                        onPressed: () => _respondToRequest(tx, true),
+                                        child: Text(loc.accept),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      OutlinedButton(
+                                        onPressed: () => _respondToRequest(tx, false),
+                                        child: Text(loc.reject),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        // If this card is a request sent by the current user, show disabled Exchange/Cancel buttons
+                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] == FirebaseAuth.instance.currentUser!.uid) {
+                          return Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 28,
+                                    backgroundColor: _myLoc != null ? Colors.green.shade50 : Colors.grey.shade200,
+                                    child: Icon(
+                                      (txData?['type'] as String?) == 'Deposit' ? Icons.monetization_on : Icons.account_balance_wallet,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 6),
+                                        Text('${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', style: TextStyle(color: Colors.grey[700])),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    children: [
+                                      ElevatedButton(
+                                        onPressed: null, // Disable Exchange button
+                                        child: Text(loc.exchangeRequestFrom),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      OutlinedButton(
+                                        onPressed: null, // Disable Cancel button
+                                        child: Text(loc.cancel),
+                                      ),
                                     ],
                                   ),
                                 ],

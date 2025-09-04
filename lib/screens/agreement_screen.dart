@@ -5,6 +5,7 @@ import 'package:location/location.dart';
 import 'package:cashlink/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 
 class AgreementScreen extends StatefulWidget {
   const AgreementScreen({super.key});
@@ -22,6 +23,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
   bool _canLeave = false;
   bool _showCancel = true;
   bool _navigatedToRating = false; // prevent duplicate navigation
+  StreamSubscription<DocumentSnapshot>? _txSub;
 
   @override
   void initState() {
@@ -223,6 +225,33 @@ class _AgreementScreenState extends State<AgreementScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ?? {};
+    final myTxId = args['myTxId'] as String?;
+    if (myTxId != null) {
+      _txSub?.cancel();
+      _txSub = FirebaseFirestore.instance
+          .collection('transactions')
+          .doc(myTxId)
+          .snapshots()
+          .listen((doc) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data != null && data['status'] == 'rejected') {
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/match');
+          }
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _txSub?.cancel();
+    super.dispose();
+  }
+
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final args = ModalRoute.of(context)!.settings.arguments as Map?;
@@ -313,9 +342,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                 body: Center(child: Text(loc.noTransactions)));
           }
 
-          final iAmRequester = (myData['exchangeRequestedBy'] == currentUserId);
           final myType = (myData['type'] as String?) ?? '';
-          final iAmDeposit = myType == 'Deposit';
           final status = (myData['status'] as String?) ?? 'pending';
 
           // If accepted, allow leaving and show details
@@ -383,7 +410,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Show timer bar only for requester
-                            if (iAmRequester)
+                            if (myData['exchangeRequestedBy'] == currentUserId)
                               Row(
                                 children: [
                                   Expanded(
@@ -404,7 +431,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                   ),
                                 ],
                               ),
-                            if (iAmRequester)
+                            if (myData['exchangeRequestedBy'] == currentUserId)
                               const SizedBox(height: 12),
                             Card(
                               color: Colors.red[50],
@@ -436,44 +463,43 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                  otherStatus == 'accepted' || otherStatus == 'completed') && otherUser.isNotEmpty)
                               ...[
                                 _detailsCard(otherUser, otherSharedLocation, loc, myTxId),
-                                if (iAmRequester)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        icon: Icon(
-                                          iAmDeposit ? Icons.send : Icons.attach_money,
-                                          color: Colors.white,
-                                        ),
-                                        label: Text(
-                                          iAmDeposit
-                                              ? loc.confirmCashReceived
-                                              : loc.confirmInstapayTransfer,
-                                              
-                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green[700],
-                                          minimumSize: const Size.fromHeight(48),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                        onPressed: _busy
-                                            ? null
-                                            : () => _confirmStep(
-                                                  myTxId: myTxId,
-                                                  otherTxId: otherTxId,
-                                                  iAmDeposit: iAmDeposit,
-                                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      icon: Icon(
+                                        myType == 'Deposit' ? Icons.send : Icons.attach_money,
+                                        color: Colors.white,
                                       ),
+                                      label: Text(
+                                        myType == 'Deposit'
+                                            ? loc.confirmTransfer
+                                            : loc.confirmCashReceived,
+                                        
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green[700],
+                                        minimumSize: const Size.fromHeight(48),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _confirmStep(
+                                                myTxId: myTxId,
+                                                otherTxId: otherTxId,
+                                                iAmDeposit: myType == 'Deposit',
+                                              ),
                                     ),
                                   ),
+                                ),
                               ],
 
                             // Accept / Decline flow
-                            if (status == 'requested' && otherStatus != 'accepted' && iAmRequester) ...[
+                            if (status == 'requested' && otherStatus != 'accepted' && myData['exchangeRequestedBy'] == currentUserId) ...[
                               _infoCard(
                                 icon: Icons.hourglass_top,
                                 title: loc.waitingForOther,
@@ -505,25 +531,25 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             ],
 
                             // Confirmation buttons for requester
-                            if ((status == 'accepted' || status == 'completed') && iAmRequester) ...[
+                            if ((status == 'accepted' || status == 'completed') && myData['exchangeRequestedBy'] == currentUserId) ...[
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     icon: Icon(
-                                      iAmDeposit ? Icons.check_circle : Icons.attach_money,
+                                      myType == 'Deposit' ? Icons.check_circle : Icons.attach_money,
                                       color: Colors.white,
                                     ),
                                     label: Text(
-                                      iAmDeposit
-                                          ? loc.confirmCashReceived
-                                          : loc.confirmInstapayTransfer,
+                                      myType == 'Deposit'
+                                          ? loc.confirmTransfer
+                                          : loc.confirmCashReceived,
                                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: (myData['instapayConfirmed'] == true && iAmDeposit) || 
-                                                     (myData['cashConfirmed'] == true && !iAmDeposit)
+                                      backgroundColor: (myData['instapayConfirmed'] == true && myType == 'Deposit') || 
+                                                     (myData['cashConfirmed'] == true && myType == 'Withdraw')
                                           ? Colors.grey
                                           : Colors.green[700],
                                       minimumSize: const Size.fromHeight(48),
@@ -532,13 +558,13 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                       ),
                                     ),
                                     onPressed: _busy || 
-                                              (myData['instapayConfirmed'] == true && iAmDeposit) || 
-                                              (myData['cashConfirmed'] == true && !iAmDeposit)
+                                              (myData['instapayConfirmed'] == true && myType == 'Deposit') || 
+                                              (myData['cashConfirmed'] == true && myType == 'Withdraw')
                                         ? null
                                         : () => _confirmStep(
                                               myTxId: myTxId,
                                               otherTxId: otherTxId,
-                                              iAmDeposit: iAmDeposit,
+                                              iAmDeposit: myType == 'Deposit',
                                             ),
                                   ),
                                 ),
@@ -546,25 +572,25 @@ class _AgreementScreenState extends State<AgreementScreen> {
                             ],
 
                             // Confirmation buttons for receiver (not requester)
-                            if ((status == 'accepted' || status == 'completed') && !iAmRequester) ...[
+                            if ((status == 'accepted' || status == 'completed') && myData['exchangeRequestedBy'] != currentUserId) ...[
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 16),
                                 child: SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
                                     icon: Icon(
-                                      !iAmDeposit ? Icons.check_circle : Icons.attach_money,
+                                      myType == 'Withdraw' ? Icons.check_circle : Icons.attach_money,
                                       color: Colors.white,
                                     ),
                                     label: Text(
-                                      !iAmDeposit
+                                      myType == 'Withdraw'
                                           ? loc.confirmCashReceived
-                                          : loc.confirmInstapayTransfer,
+                                          : loc.confirmTransfer,
                                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: (myData['cashConfirmed'] == true && !iAmDeposit) || 
-                                                     (myData['instapayConfirmed'] == true && iAmDeposit)
+                                      backgroundColor: (myData['cashConfirmed'] == true && myType == 'Withdraw') || 
+                                                     (myData['instapayConfirmed'] == true && myType == 'Deposit')
                                           ? Colors.grey
                                           : Colors.green[700],
                                       minimumSize: const Size.fromHeight(48),
@@ -573,13 +599,13 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                       ),
                                     ),
                                     onPressed: _busy || 
-                                              (myData['cashConfirmed'] == true && !iAmDeposit) || 
-                                              (myData['instapayConfirmed'] == true && iAmDeposit)
+                                              (myData['cashConfirmed'] == true && myType == 'Withdraw') || 
+                                              (myData['instapayConfirmed'] == true && myType == 'Deposit')
                                         ? null
                                         : () => _confirmStep(
                                               myTxId: myTxId,
                                               otherTxId: otherTxId,
-                                              iAmDeposit: iAmDeposit,
+                                              iAmDeposit: myType == 'Deposit',
                                             ),
                                   ),
                                 ),

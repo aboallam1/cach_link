@@ -53,7 +53,7 @@ class AppLocalizations {
       'locationShared': 'Set Location',
       'locationSharedMessage': 'Location Selected',
       'meetingWarning': 'Meet in a public place. Don’t hand over cash before confirming transfer.',
-      'exchangeRequestFrom': 'Exchange:',
+      'exchangeRequestFrom': 'Exchange',
       'cashReceived': 'Cash Received',
       'instapayTransferred': 'Transferred via Instapay',
       'exchangeCompleted': 'Exchange completed',
