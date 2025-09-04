@@ -232,23 +232,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       );
-    } else if (kIsWeb && _userImageWeb != null && _userImageBytesWeb == null) {
-      // fallback if bytes not available
-      userImageWidget = ClipOval(
-        child: SizedBox(
-          width: 96,
-          height: 96,
-          child: Image.network(
-            _userImageWeb!.path,
-            width: 96,
-            height: 96,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Icon(Icons.person, size: 60, color: theme.primaryColor);
-            },
-          ),
-        ),
-      );
     } else if (!kIsWeb && _userImage != null) {
       userImageWidget = CircleAvatar(
         radius: 48,
@@ -280,28 +263,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(12),
           child: Image.memory(
             _idImageBytesWeb!,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[200],
-                child: const Icon(Icons.error, size: 40, color: Colors.red),
-              );
-            },
-          ),
-        ),
-      );
-    } else if (kIsWeb && _idImageWeb != null && _idImageBytesWeb == null) {
-      idImageWidget = Container(
-        height: 120,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            _idImageWeb!.path,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
               return Container(
