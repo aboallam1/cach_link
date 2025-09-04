@@ -405,15 +405,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Transaction Details",
+                          loc.transactionDetails ?? "Transaction Details",
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
                         _infoRow(loc.amount, "\$${(data['amount'] ?? 0.0).toStringAsFixed(2)}"),
                         _divider(),
-                        _infoRow("Transaction Type", _localizedType(data['type'], loc)),
+                        _infoRow(loc.transactionType ?? "Transaction Type", _localizedType(data['type'], loc)),
                         _divider(),
-                        _infoRow("Status", "✅ ${loc.exchangeCompleted}"),
+                        _infoRow(loc.status ?? "Status", "✅ ${loc.exchangeCompleted}"),
                         if (distance > 0) ...[
                           _divider(),
                           _infoRow(loc.distance, "~${distance.toStringAsFixed(2)} km"),
@@ -435,7 +435,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Partner Details",
+                            loc.partnerDetails ?? "Partner Details",
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 12),
@@ -443,7 +443,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           _divider(),
                           _infoRow(loc.gender, otherUser['gender'] ?? 'Unknown'),
                           _divider(),
-                          _infoRow("Partner Rating", "${otherUser['rating']?.toStringAsFixed(1) ?? 'N/A'} ⭐"),
+                          _infoRow(loc.partnerRating ?? "Partner Rating", "${otherUser['rating']?.toStringAsFixed(1) ?? 'N/A'} ⭐"),
                         ],
                       ),
                     ),
@@ -460,13 +460,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Confirmation Status",
+                          loc.confirmationStatus ?? "Confirmation Status",
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
-                        _infoRow("Cash Received", data['cashConfirmed'] == true ? "✅ Confirmed" : "❌ Not Confirmed"),
+                        _infoRow(loc.cashReceived ?? "Cash Received", data['cashConfirmed'] == true ? "✅ ${loc.confirmed ?? "Confirmed"}" : "❌ ${loc.notConfirmed ?? "Not Confirmed"}"),
                         _divider(),
-                        _infoRow("Instapay Transfer", data['instapayConfirmed'] == true ? "✅ Confirmed" : "❌ Not Confirmed"),
+                        _infoRow(loc.instapayTransfer ?? "Instapay Transfer", data['instapayConfirmed'] == true ? "✅ ${loc.confirmed ?? "Confirmed"}" : "❌ ${loc.notConfirmed ?? "Not Confirmed"}"),
                       ],
                     ),
                   ),
@@ -483,13 +483,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Rating Information",
+                          loc.ratingInformation ?? "Rating Information",
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
-                        _infoRow("Your Rating", myRating != null ? "${myRating.toStringAsFixed(1)} ⭐" : "Not rated yet"),
+                        _infoRow(loc.yourRating ?? "Your Rating", myRating != null ? "${myRating.toStringAsFixed(1)} ⭐" : (loc.notRatedYet ?? "Not rated yet")),
                         _divider(),
-                        _infoRow("Their Rating", theirRating != null ? "${theirRating.toStringAsFixed(1)} ⭐" : "Not rated yet"),
+                        _infoRow(loc.theirRating ?? "Their Rating", theirRating != null ? "${theirRating.toStringAsFixed(1)} ⭐" : (loc.notRatedYet ?? "Not rated yet")),
                       ],
                     ),
                   ),
@@ -506,19 +506,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Transaction Timeline",
+                          loc.transactionTimeline ?? "Transaction Timeline",
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
                         if (createdAt != null)
-                          _infoRow("Created", "${createdAt.toDate().day}/${createdAt.toDate().month}/${createdAt.toDate().year} ${createdAt.toDate().hour}:${createdAt.toDate().minute.toString().padLeft(2, '0')}"),
+                          _infoRow(loc.created ?? "Created", "${createdAt.toDate().day}/${createdAt.toDate().month}/${createdAt.toDate().year} ${createdAt.toDate().hour}:${createdAt.toDate().minute.toString().padLeft(2, '0')}"),
                         if (acceptedAt != null) ...[
                           _divider(),
-                          _infoRow("Accepted", "${acceptedAt.toDate().day}/${acceptedAt.toDate().month}/${acceptedAt.toDate().year} ${acceptedAt.toDate().hour}:${acceptedAt.toDate().minute.toString().padLeft(2, '0')}"),
+                          _infoRow(loc.accepted ?? "Accepted", "${acceptedAt.toDate().day}/${acceptedAt.toDate().month}/${acceptedAt.toDate().year} ${acceptedAt.toDate().hour}:${acceptedAt.toDate().minute.toString().padLeft(2, '0')}"),
                         ],
                         if (completedAt != null) ...[
                           _divider(),
-                          _infoRow("Completed", "${completedAt.toDate().day}/${completedAt.toDate().month}/${completedAt.toDate().year} ${completedAt.toDate().hour}:${completedAt.toDate().minute.toString().padLeft(2, '0')}"),
+                          _infoRow(loc.completed ?? "Completed", "${completedAt.toDate().day}/${completedAt.toDate().month}/${completedAt.toDate().year} ${completedAt.toDate().hour}:${completedAt.toDate().minute.toString().padLeft(2, '0')}"),
                         ],
                       ],
                     ),
@@ -545,7 +545,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             });
                           },
                           icon: const Icon(Icons.star, color: Colors.white),
-                          label: Text("Rate Partner", style: const TextStyle(color: Colors.white)),
+                          label: Text(loc.ratePartner ?? "Rate Partner", style: const TextStyle(color: Colors.white)),
                         ),
                       ),
                     if (myRating == null && otherUID != null)
@@ -767,6 +767,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return loc.cancelled;
       case 'requested':
         return loc.requested;
+      case 'completed':
+        return loc.completed;
       default:
         return status ?? '';
     }

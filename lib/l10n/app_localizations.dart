@@ -93,7 +93,28 @@ class AppLocalizations {
       'confirmCashReceived': 'Confirm Cash Received',
       'confirmInstapayTransfer': 'Confirm Instapay Transfer',
       'confirmTransfer': 'Confirm Transfer',
-      'saveRequest': 'Save Request in (km)'
+      'saveRequest': 'Save Request in (km)',
+      'locationPermissionDenied': 'Location permission denied.',
+      'locationSharedSuccessfully': 'Location shared successfully.',
+      'waitingForCashConfirmation': 'Waiting for cash confirmation.',
+      'waitingForInstapayConfirmation': 'Waiting for Instapay confirmation.',
+      'latitude': 'Latitude',
+      'longitude': 'Longitude',
+      'openInMaps': 'Open in Maps',
+      'transactionDetails': 'Transaction Details',
+      'partnerDetails': 'Partner Details',
+      'partnerRating': 'Partner Rating',
+      'confirmationStatus': 'Confirmation Status',
+      'confirmed': 'Confirmed',
+      'notConfirmed': 'Not Confirmed',
+      'instapayTransfer': 'Instapay Transfer',
+      'ratingInformation': 'Rating Information',
+      'yourRating': 'Your Rating',
+      'theirRating': 'Their Rating',
+      'notRatedYet': 'Not rated yet.',
+      'transactionTimeline': 'Transaction Timeline',
+      'created': 'Created',
+      'ratePartner': 'Rate Partner',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -172,7 +193,28 @@ class AppLocalizations {
       'confirmCashReceived': 'تأكيد استلام النقود',
       'confirmInstapayTransfer': 'تأكيد تحويل إنستا باي',
       'confirmTransfer': 'تأكيد التحويل',
-      'saveRequest': 'حفظ الطلب في (كم)'
+      'saveRequest': 'حفظ الطلب في (كم)',
+      'locationPermissionDenied': 'تم رفض إذن الموقع.',
+      'locationSharedSuccessfully': 'تمت مشاركة الموقع بنجاح.',
+      'waitingForCashConfirmation': 'في انتظار تأكيد استلام النقود.',
+      'waitingForInstapayConfirmation': 'في انتظار تأكيد التحويل.',
+      'latitude': 'خط العرض',
+      'longitude': 'خط الطول',
+      'openInMaps': 'افتح في الخرائط',
+      'transactionDetails': 'تفاصيل المعاملة',
+      'partnerDetails': 'تفاصيل الشريك',
+      'partnerRating': 'تقييم الشريك',
+      'confirmationStatus': 'حالة التأكيد',
+      'confirmed': 'مؤكد',
+      'notConfirmed': 'غير مؤكد',
+      'instapayTransfer': 'تحويل إنستا باي',
+      'ratingInformation': 'معلومات التقييم',
+      'yourRating': 'تقييمك',
+      'theirRating': 'تقييمهم',
+      'notRatedYet': 'لم يتم تقييمه بعد.',
+      'transactionTimeline': 'جدول زمني المعاملة',
+      'created': 'تم الإنشاء',
+      'ratePartner': 'قيم الشريك',
     },
   };
 
@@ -261,6 +303,29 @@ class AppLocalizations {
   String get confirmInstapayTransfer => _t('confirmInstapayTransfer');
   String get confirmTransfer => _t('confirmTransfer');
   String get saveRequest => _t('saveRequest');
+
+  // Add missing getters for all new localization keys used in the app
+  String get locationPermissionDenied => _t('locationPermissionDenied');
+  String get locationSharedSuccessfully => _t('locationSharedSuccessfully');
+  String get waitingForCashConfirmation => _t('waitingForCashConfirmation');
+  String get waitingForInstapayConfirmation => _t('waitingForInstapayConfirmation');
+  String get latitude => _t('latitude');
+  String get longitude => _t('longitude');
+  String get openInMaps => _t('openInMaps');
+  String get transactionDetails => _t('transactionDetails');
+  String get partnerDetails => _t('partnerDetails');
+  String get partnerRating => _t('partnerRating');
+  String get confirmationStatus => _t('confirmationStatus');
+  String get confirmed => _t('confirmed');
+  String get notConfirmed => _t('notConfirmed');
+  String get instapayTransfer => _t('instapayTransfer');
+  String get ratingInformation => _t('ratingInformation');
+  String get yourRating => _t('yourRating');
+  String get theirRating => _t('theirRating');
+  String get notRatedYet => _t('notRatedYet');
+  String get transactionTimeline => _t('transactionTimeline');
+  String get created => _t('created');
+  String get ratePartner => _t('ratePartner');
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

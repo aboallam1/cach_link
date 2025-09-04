@@ -102,7 +102,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
       if (!mounted) return;
       setState(() => _sharingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission denied')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.locationPermissionDenied)),
       );
       return;
     }
@@ -120,7 +120,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
     if (!mounted) return;
     setState(() => _sharingLocation = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Location shared')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.locationSharedSuccessfully)),
     );
   }
 
@@ -193,8 +193,8 @@ class _AgreementScreenState extends State<AgreementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(iAmDeposit
-                ? 'Waiting for cash confirmation from the other party.'
-                : 'Waiting for Instapay confirmation from the other party.'),
+                ? AppLocalizations.of(context)!.waitingForCashConfirmation
+                : AppLocalizations.of(context)!.waitingForInstapayConfirmation),
             backgroundColor: Colors.orange,
           ),
         );
@@ -638,14 +638,14 @@ class _AgreementScreenState extends State<AgreementScreen> {
                   Expanded(
                     child: Text(
                       (otherLocation['lat'] != null && otherLocation['lng'] != null)
-                        ? '${loc.locationShared} (Lat: ${otherLocation['lat']}, Lng: ${otherLocation['lng']})'
+                        ? '${loc.locationShared} (${loc.latitude}: ${otherLocation['lat']}, ${loc.longitude}: ${otherLocation['lng']})'
                         : loc.locationNotShared
                     ),
                   ),
                   if (googleMapsUrl != null)
                     IconButton(
                       icon: const Icon(Icons.map, color: Colors.blue),
-                      tooltip: 'Open in Maps',
+                      tooltip: loc.openInMaps,
                       onPressed: () {
                         if (googleMapsUrl != null && googleMapsUrl.isNotEmpty) {
                           print('Open maps: $googleMapsUrl');
