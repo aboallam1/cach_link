@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:cashlink/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -450,7 +451,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         _divider(),
                         _infoRow(loc.transactionType ?? "Transaction Type", _localizedType(data['type'], loc)),
                         _divider(),
-                        _infoRow(loc.status ?? "Status", "✅ ${loc.exchangeCompleted}"),
+                        _infoRow(loc.status ?? "Status", " ${loc.exchangeCompleted}"),
                         if (distance > 0) ...[
                           _divider(),
                           _infoRow(loc.distance, "~${distance.toStringAsFixed(2)} km"),
@@ -515,9 +516,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
-                        _infoRow(loc.cashReceived ?? "Cash Received", data['cashConfirmed'] == true ? "✅ ${loc.confirmed ?? "Confirmed"}" : "❌ ${loc.notConfirmed ?? "Not Confirmed"}"),
+                        _infoRow(loc.cashReceived ?? "Cash Received", data['cashConfirmed'] == true ? " ${loc.confirmed ?? "Confirmed"}" : " ${loc.notConfirmed ?? "Not Confirmed"}"),
                         _divider(),
-                        _infoRow(loc.instapayTransfer ?? "Instapay Transfer", data['instapayConfirmed'] == true ? "✅ ${loc.confirmed ?? "Confirmed"}" : "❌ ${loc.notConfirmed ?? "Not Confirmed"}"),
+                        _infoRow(loc.instapayTransfer ?? "Instapay Transfer", data['instapayConfirmed'] == true ? " ${loc.confirmed ?? "Confirmed"}" : " ${loc.notConfirmed ?? "Not Confirmed"}"),
                       ],
                     ),
                   ),

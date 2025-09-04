@@ -182,7 +182,7 @@ class _MatchScreenState extends State<MatchScreen> {
       }
     }
 
-    // Find closest by GPS
+    // Find closest to GPS
     DocumentSnapshot? closestByGps;
     double minDist = double.infinity;
     for (var doc in candidates) {
@@ -245,6 +245,20 @@ class _MatchScreenState extends State<MatchScreen> {
     return 12742 * asin(sqrt(a)); // in km
   }
 
+  double _calculateDistance(DocumentSnapshot otherTx) {
+    final otherData = otherTx.data() as Map<String, dynamic>;
+    
+    if (_myLoc != null && otherData['location'] != null) {
+      return _distance(
+        _myLoc!['lat'], 
+        _myLoc!['lng'], 
+        otherData['location']['lat'], 
+        otherData['location']['lng']
+      );
+    }
+    return 0.0;
+  }
+
   Future<void> _sendExchangeRequest(DocumentSnapshot otherTx, String otherUserId) async {
     if (_lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!)) return;
     if (_myTx == null) return;
@@ -271,6 +285,21 @@ class _MatchScreenState extends State<MatchScreen> {
       'partnerTxId': _myTx!.id,
       'exchangeRequestedBy': currentUserId,
       'lockUntil': Timestamp.fromDate(_lockUntil!),
+    });
+
+    // Create notification for the other user
+    final notificationRef = FirebaseFirestore.instance.collection('notifications').doc();
+    batch.set(notificationRef, {
+      'id': notificationRef.id,
+      'toUserId': otherUserId,
+      'fromUserId': currentUserId,
+      'myTxId': otherTx.id,
+      'otherTxId': _myTx!.id,
+      'amount': (_myTx!.data() as Map<String, dynamic>)['amount'],
+      'distance': _calculateDistance(otherTx),
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt': DateTime.now().add(const Duration(seconds: 60)).toIso8601String(),
     });
 
     await batch.commit();

@@ -18,6 +18,7 @@ import 'screens/settings_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'widgets/request_banner.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
