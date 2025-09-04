@@ -291,6 +291,286 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  void _showCompletedTransactionDetails(Map<String, dynamic> data) async {
+    final loc = AppLocalizations.of(context)!;
+    final user = FirebaseAuth.instance.currentUser!;
+    
+    // Get partner transaction data if available
+    Map<String, dynamic>? partnerData;
+    if (data['partnerTxId'] != null) {
+      final partnerDoc = await FirebaseFirestore.instance
+          .collection('transactions')
+          .doc(data['partnerTxId'])
+          .get();
+      if (partnerDoc.exists) {
+        partnerData = partnerDoc.data() as Map<String, dynamic>;
+      }
+    }
+
+    // Get other user data
+    final otherUID = data['exchangeRequestedBy'] != null &&
+            data['exchangeRequestedBy'] != user.uid
+        ? data['exchangeRequestedBy']
+        : (partnerData?['userId'] as String?);
+
+    Map<String, dynamic>? otherUser;
+    if (otherUID != null) {
+      otherUser = await _getOtherUserData(otherUID);
+    }
+
+    // Get rating data
+    double? myRating;
+    double? theirRating;
+    if (otherUID != null) {
+      // My rating of them
+      final myRatingSnap = await FirebaseFirestore.instance
+          .collection('ratings')
+          .where('raterId', isEqualTo: user.uid)
+          .where('ratedUserId', isEqualTo: otherUID)
+          .limit(1)
+          .get();
+      if (myRatingSnap.docs.isNotEmpty) {
+        myRating = myRatingSnap.docs.first['stars']?.toDouble();
+      }
+
+      // Their rating of me
+      final theirRatingSnap = await FirebaseFirestore.instance
+          .collection('ratings')
+          .where('raterId', isEqualTo: otherUID)
+          .where('ratedUserId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (theirRatingSnap.docs.isNotEmpty) {
+        theirRating = theirRatingSnap.docs.first['stars']?.toDouble();
+      }
+    }
+
+    // Calculate distance if location data available
+    final distance = (data['location'] != null && otherUser?['location'] != null)
+        ? _distance(
+            data['location']['lat'],
+            data['location']['lng'],
+            otherUser!['location']['lat'],
+            otherUser['location']['lng'])
+        : 0.0;
+
+    // Format timestamps
+    final createdAt = data['createdAt'] as Timestamp?;
+    final acceptedAt = data['acceptedAt'] as Timestamp?;
+    final completedAt = data['completedAt'] as Timestamp?;
+
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Colors.white, Colors.teal],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green[700], size: 28),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "${_localizedType(data['type'], loc)} - ${loc.exchangeCompleted}",
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Transaction Details
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Transaction Details",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        _infoRow(loc.amount, "\$${(data['amount'] ?? 0.0).toStringAsFixed(2)}"),
+                        _divider(),
+                        _infoRow("Transaction Type", _localizedType(data['type'], loc)),
+                        _divider(),
+                        _infoRow("Status", "✅ ${loc.exchangeCompleted}"),
+                        if (distance > 0) ...[
+                          _divider(),
+                          _infoRow(loc.distance, "~${distance.toStringAsFixed(2)} km"),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Partner Details
+                if (otherUser != null)
+                  Card(
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Partner Details",
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 12),
+                          _infoRow(loc.name, otherUser['name']?.split(' ').first ?? 'Unknown'),
+                          _divider(),
+                          _infoRow(loc.gender, otherUser['gender'] ?? 'Unknown'),
+                          _divider(),
+                          _infoRow("Partner Rating", "${otherUser['rating']?.toStringAsFixed(1) ?? 'N/A'} ⭐"),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
+
+                // Confirmation Status
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Confirmation Status",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        _infoRow("Cash Received", data['cashConfirmed'] == true ? "✅ Confirmed" : "❌ Not Confirmed"),
+                        _divider(),
+                        _infoRow("Instapay Transfer", data['instapayConfirmed'] == true ? "✅ Confirmed" : "❌ Not Confirmed"),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Rating Information
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Rating Information",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        _infoRow("Your Rating", myRating != null ? "${myRating.toStringAsFixed(1)} ⭐" : "Not rated yet"),
+                        _divider(),
+                        _infoRow("Their Rating", theirRating != null ? "${theirRating.toStringAsFixed(1)} ⭐" : "Not rated yet"),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Timeline
+                Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Transaction Timeline",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        if (createdAt != null)
+                          _infoRow("Created", "${createdAt.toDate().day}/${createdAt.toDate().month}/${createdAt.toDate().year} ${createdAt.toDate().hour}:${createdAt.toDate().minute.toString().padLeft(2, '0')}"),
+                        if (acceptedAt != null) ...[
+                          _divider(),
+                          _infoRow("Accepted", "${acceptedAt.toDate().day}/${acceptedAt.toDate().month}/${acceptedAt.toDate().year} ${acceptedAt.toDate().hour}:${acceptedAt.toDate().minute.toString().padLeft(2, '0')}"),
+                        ],
+                        if (completedAt != null) ...[
+                          _divider(),
+                          _infoRow("Completed", "${completedAt.toDate().day}/${completedAt.toDate().month}/${completedAt.toDate().year} ${completedAt.toDate().hour}:${completedAt.toDate().minute.toString().padLeft(2, '0')}"),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    if (myRating == null && otherUID != null)
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange[700],
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            Navigator.of(context).pushNamed('/rating', arguments: {
+                              'otherUserId': otherUID,
+                            });
+                          },
+                          icon: const Icon(Icons.star, color: Colors.white),
+                          label: Text("Rate Partner", style: const TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    if (myRating == null && otherUID != null)
+                      const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[600],
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(loc.close, style: const TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _infoRow(String title, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -383,7 +663,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${loc.cancelled}!')));
                           }
                         }
-                      : () => _showTransactionDetails(data),
+                      : status == 'completed'
+                          ? () => _showCompletedTransactionDetails(data)
+                          : () => _showTransactionDetails(data),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Row(

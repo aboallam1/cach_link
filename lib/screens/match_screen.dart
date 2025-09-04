@@ -567,7 +567,7 @@ class _MatchScreenState extends State<MatchScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _saveRequestInRadius,
-                      child: Text("Save Request in (${_searchRadius}km)"),
+                      child: Text('${loc.saveRequest} (${_searchRadius}km)'),
                     ),
                   ),
                 if (_noCandidates && _showSaveButton)

@@ -57,6 +57,7 @@ class AppLocalizations {
       'cashReceived': 'Cash Received',
       'instapayTransferred': 'Transferred via Instapay',
       'exchangeCompleted': 'Exchange completed ✅',
+      'completed': 'Completed',
       'counterpartyDetails': 'Counterparty Details',
       'locationNotShared': 'Their location is not shared yet',
       'sharing': 'Sharing...',
@@ -92,6 +93,7 @@ class AppLocalizations {
       'confirmCashReceived': 'Confirm Cash Received',
       'confirmInstapayTransfer': 'Confirm Instapay Transfer',
       'confirmTransfer': 'Confirm Transfer',
+      'saveRequest': 'Save Request in (km)'
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -114,6 +116,7 @@ class AppLocalizations {
       'accepted': 'تم القبول',
       'rejected': 'مرفوض',
       'cancelled': 'تم الالغاء',
+      'cancel': 'الغاء',
       'requested': 'بانتظار الموافقة',
       'transactionHistory': 'تاريخ المعاملات',
       'noTransactions': 'لا توجد معاملات بعد.',
@@ -129,10 +132,11 @@ class AppLocalizations {
       'locationShared': 'تحديد الموقع',
       'locationSharedMessage': 'تم اختيار الموقع',
       'meetingWarning': 'اجتمع في مكان عام. لا تسلم النقود قبل تأكيد التحويل.',
-      'exchangeRequestFrom': ' تبادل :',
+      'exchangeRequestFrom': 'تبادل ',
       'cashReceived': 'النقود المستلمة',
       'instapayTransferred': 'تم التحويل ',
       'exchangeCompleted': 'تمت عملية التبادل ✅',
+      'completed': 'مكتمل',
       'counterpartyDetails': 'تفاصيل الطرف الآخر',
       'locationNotShared': 'لم يتم مشاركة موقعك ',
       'sharing': 'جارٍ المشاركة...',
@@ -168,6 +172,7 @@ class AppLocalizations {
       'confirmCashReceived': 'تأكيد استلام النقود',
       'confirmInstapayTransfer': 'تأكيد تحويل إنستا باي',
       'confirmTransfer': 'تأكيد التحويل',
+      'saveRequest': 'حفظ الطلب في (كم)'
     },
   };
 
@@ -220,6 +225,7 @@ class AppLocalizations {
   String get cashReceived => _t('cashReceived');
   String get instapayTransferred => _t('instapayTransferred');
   String get exchangeCompleted => _t('exchangeCompleted');
+  String get completed => _t('completed');
   String get counterpartyDetails => _t('counterpartyDetails');
   String get locationNotShared => _t('locationNotShared');
   String get sharing => _t('sharing');
@@ -254,6 +260,7 @@ class AppLocalizations {
   String get confirmCashReceived => _t('confirmCashReceived');
   String get confirmInstapayTransfer => _t('confirmInstapayTransfer');
   String get confirmTransfer => _t('confirmTransfer');
+  String get saveRequest => _t('saveRequest');
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
