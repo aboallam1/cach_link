@@ -49,17 +49,40 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'accepted':
         return Colors.green[100]!;
       case 'pending':
-        return Colors.yellow[100]!;
+        return Colors.orange[100]!;
       case 'rejected':
         return Colors.red[100]!;
-      case 'canceled':
+      case 'cancelled':
+        return Colors.grey[200]!;
+      case 'requested':
+        return Colors.blue[100]!;
+      case 'completed':
+        return Colors.teal[100]!;
+      case 'archived':
+        return Colors.brown[100]!;
+      default:
+        return Colors.grey[50]!;
+    }
+  }
+
+  Color _chipColorByStatus(String status) {
+    switch (status) {
+      case 'accepted':
+        return Colors.green[200]!;
+      case 'pending':
+        return Colors.orange[200]!;
+      case 'rejected':
+        return Colors.red[200]!;
+      case 'cancelled':
         return Colors.grey[300]!;
       case 'requested':
-        return Colors.orange[100]!;
+        return Colors.blue[200]!;
       case 'completed':
-        return Colors.blue[50]!;
+        return Colors.teal[200]!;
+      case 'archived':
+        return Colors.brown[200]!;
       default:
-        return Colors.white;
+        return Colors.grey[200]!;
     }
   }
 
@@ -166,7 +189,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return;
     }
 
-    // ...existing code for other statuses...
+    // For other statuses, show a simplified dialog
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -355,9 +378,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             ),
                           );
                           if (confirm == true) {
-                            await FirebaseFirestore.instance.collection('transactions').doc(doc.id).update({'status': 'canceled'});
+                            await FirebaseFirestore.instance.collection('transactions').doc(doc.id).update({'status': 'cancelled'});
                             if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${loc.canceled}!')));
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${loc.cancelled}!')));
                           }
                         }
                       : () => _showTransactionDetails(data),
@@ -385,7 +408,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                "${loc.amount}: \$${(amount as num).toStringAsFixed(2)} • ${loc.status}: ${_localizedStatus(status, loc)}",
+                                "${loc.amount}: \$${(amount as num).toStringAsFixed(2)}",
                                 style: TextStyle(color: Colors.grey[700]),
                               ),
                             ],
@@ -408,7 +431,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             const SizedBox(height: 8),
                             Chip(
                               label: Text(_localizedStatus(status, loc)),
-                              backgroundColor: Colors.grey[100],
+                              backgroundColor: _chipColorByStatus(status),
                               visualDensity: VisualDensity.compact,
                             ),
                           ],
@@ -458,8 +481,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return loc.accepted;
       case 'rejected':
         return loc.rejected;
-      case 'canceled':
-        return loc.canceled;
+      case 'cancelled':
+        return loc.cancelled;
       case 'requested':
         return loc.requested;
       default:

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:typed_data'; // added
 import 'package:cashlink/l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -18,6 +19,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _gender;
   File? _idImage;
   File? _userImage;
+  XFile? _idImageWeb; // Add for web (kept for compatibility)
+  XFile? _userImageWeb; // Add for web (kept for compatibility)
+  Uint8List? _idImageBytesWeb; // NEW: bytes for web preview
+  Uint8List? _userImageBytesWeb; // NEW: bytes for web preview
   String? _idImageUrl;
   String? _userImageUrl;
   bool _uploading = false;
@@ -47,15 +52,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      setState(() {
-        if (isUserImage) {
-          _userImage = kIsWeb ? null : File(picked.path);
-          _userImageUrl = kIsWeb ? picked.path : null; // On web, use path as a preview URL
-        } else {
-          _idImage = kIsWeb ? null : File(picked.path);
-          _idImageUrl = kIsWeb ? picked.path : null;
-        }
-      });
+      if (kIsWeb) {
+        // Read bytes for web preview
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          if (isUserImage) {
+            _userImageBytesWeb = bytes;
+            _userImageWeb = picked;
+            _userImage = null;
+          } else {
+            _idImageBytesWeb = bytes;
+            _idImageWeb = picked;
+            _idImage = null;
+          }
+        });
+      } else {
+        setState(() {
+          if (isUserImage) {
+            _userImage = File(picked.path);
+            _userImageWeb = null;
+            _userImageBytesWeb = null;
+          } else {
+            _idImage = File(picked.path);
+            _idImageWeb = null;
+            _idImageBytesWeb = null;
+          }
+        });
+      }
     }
   }
 
@@ -114,19 +137,147 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final theme = Theme.of(context);
     final loc = AppLocalizations.of(context)!;
 
-    ImageProvider? userImageProvider;
-    if (!kIsWeb && _userImage != null) {
-      userImageProvider = FileImage(_userImage!);
-    } else if (_userImageUrl != null) {
-      // On web, use NetworkImage if you have a URL, or MemoryImage if you have bytes.
-      userImageProvider = kIsWeb ? NetworkImage(_userImageUrl!) : NetworkImage(_userImageUrl!);
+    // Fix user image widget for web and mobile
+    Widget userImageWidget;
+    if (kIsWeb && _userImageBytesWeb != null) {
+      // Use memory bytes for reliable web preview
+      userImageWidget = ClipOval(
+        child: SizedBox(
+          width: 96,
+          height: 96,
+          child: Image.memory(
+            _userImageBytesWeb!,
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(Icons.person, size: 60, color: theme.primaryColor);
+            },
+          ),
+        ),
+      );
+    } else if (kIsWeb && _userImageWeb != null && _userImageBytesWeb == null) {
+      // fallback if bytes not available
+      userImageWidget = ClipOval(
+        child: SizedBox(
+          width: 96,
+          height: 96,
+          child: Image.network(
+            _userImageWeb!.path,
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(Icons.person, size: 60, color: theme.primaryColor);
+            },
+          ),
+        ),
+      );
+    } else if (!kIsWeb && _userImage != null) {
+      userImageWidget = CircleAvatar(
+        radius: 48,
+        backgroundImage: FileImage(_userImage!),
+      );
+    } else if (_userImageUrl != null && _userImageUrl!.isNotEmpty) {
+      userImageWidget = CircleAvatar(
+        radius: 48,
+        backgroundImage: NetworkImage(_userImageUrl!),
+        onBackgroundImageError: (exception, stackTrace) {
+          debugPrint('Error loading user image: $exception');
+        },
+      );
+    } else {
+      userImageWidget = Icon(Icons.person, size: 60, color: theme.primaryColor);
     }
 
-    ImageProvider? idImageProvider;
-    if (!kIsWeb && _idImage != null) {
-      idImageProvider = FileImage(_idImage!);
-    } else if (_idImageUrl != null) {
-      idImageProvider = kIsWeb ? NetworkImage(_idImageUrl!) : NetworkImage(_idImageUrl!);
+    // Fix ID image widget for web and mobile
+    Widget? idImageWidget;
+    if (kIsWeb && _idImageBytesWeb != null) {
+      idImageWidget = Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(
+            _idImageBytesWeb!,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                child: const Icon(Icons.error, size: 40, color: Colors.red),
+              );
+            },
+          ),
+        ),
+      );
+    } else if (kIsWeb && _idImageWeb != null && _idImageBytesWeb == null) {
+      idImageWidget = Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            _idImageWeb!.path,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                child: const Icon(Icons.error, size: 40, color: Colors.red),
+              );
+            },
+          ),
+        ),
+      );
+    } else if (!kIsWeb && _idImage != null) {
+      idImageWidget = Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(
+            _idImage!,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    } else if (_idImageUrl != null && _idImageUrl!.isNotEmpty) {
+      idImageWidget = Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            _idImageUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                child: const Icon(Icons.error, size: 40, color: Colors.red),
+              );
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return const Center(child: CircularProgressIndicator());
+            },
+          ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -141,16 +292,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // User image picker
+            // User image picker with better web handling
             GestureDetector(
               onTap: () => _pickImage(true),
-              child: CircleAvatar(
-                radius: 50,
-                backgroundColor: theme.primaryColor.withOpacity(0.1),
-                backgroundImage: userImageProvider,
-                child: userImageProvider == null
-                    ? Icon(Icons.person, size: 60, color: theme.primaryColor)
-                    : null,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.primaryColor.withOpacity(0.1),
+                  border: Border.all(color: theme.primaryColor.withOpacity(0.3), width: 2),
+                ),
+                child: userImageWidget,
               ),
             ),
             const SizedBox(height: 8),
@@ -203,12 +356,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    // ID image picker
+                    // ID image picker with better preview
                     OutlinedButton.icon(
                       onPressed: () => _pickImage(false),
                       icon: const Icon(Icons.upload),
                       label: Text(
-                        (_idImage == null && _idImageUrl == null)
+                        (_idImage == null && (_idImageUrl == null || _idImageUrl!.isEmpty))
                             ? (loc.locale.languageCode == 'ar' ? 'تحميل صورة الهوية' : 'Upload ID Photo')
                             : (loc.locale.languageCode == 'ar' ? 'تغيير صورة الهوية' : 'Change ID Photo'),
                       ),
@@ -219,16 +372,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                     ),
-                    if (idImageProvider != null) ...[
+                    if (idImageWidget != null) ...[
                       const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image(
-                          image: idImageProvider,
-                          height: 120,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                      idImageWidget,
                     ],
                   ],
                 ),

@@ -38,7 +38,6 @@ class AppLocalizations {
       'pending': 'Pending',
       'accepted': 'Accepted',
       'rejected': 'Rejected',
-      'canceled': 'Canceled',
       'requested': 'Requested',
       'transactionHistory': 'Transactions History',
       'noTransactions': 'No transactions yet.',
@@ -69,7 +68,8 @@ class AppLocalizations {
       'password': 'Password',
       'smsCode': 'SMS Code',
       'enterSmsCode': 'Enter SMS Code',
-      'cancel': 'Cancel',
+      'cancelled': 'Cancelled',
+      'archived': 'Archived',
       'verify': 'Verify',
       'transactionType': 'Transaction Type',
       'save': 'Save',
@@ -113,11 +113,11 @@ class AppLocalizations {
       'pending': 'قيد الانتظار',
       'accepted': 'تم القبول',
       'rejected': 'مرفوض',
-      'canceled': 'ملغي',
+      'cancelled': 'تم الالغاء',
       'requested': 'بانتظار الموافقة',
       'transactionHistory': 'تاريخ المعاملات',
       'noTransactions': 'لا توجد معاملات بعد.',
-      'details': 'تفاصيل',
+      'details': 'التفاصيل',
       'name': 'الاسم',
       'gender': 'الجنس',
       'amount': 'المبلغ',
@@ -144,8 +144,9 @@ class AppLocalizations {
       'password': 'كلمة المرور',
       'smsCode': 'رمز الرسالة',
       'enterSmsCode': 'أدخل رمز التحقق',
-      'cancel': 'إلغاء',
-      'verify': 'تأكيد',
+      'archived': 'أرشيف',
+      'confirm': 'تأكيد',
+      'verify': 'تحقق',
       'transactionType': 'نوع المعاملة',
       'save': 'حفظ',
       'filterBy': 'اعطي اولوية ل',
@@ -197,7 +198,6 @@ class AppLocalizations {
   String get pending => _t('pending');
   String get accepted => _t('accepted');
   String get rejected => _t('rejected');
-  String get canceled => _t('canceled');
   String get requested => _t('requested');
   String get transactionHistory => _t('transactionHistory');
   String get noTransactions => _t('noTransactions');
@@ -210,6 +210,9 @@ class AppLocalizations {
   String get accept => _t('accept');
   String get reject => _t('reject');
   String get close => _t('close');
+  String get cancel => _t('cancel');
+  String get archived => _t('archived');
+  String get confirm => _t('confirm');
   String get locationShared => _t('locationShared');
   String get locationSharedMessage => _t('locationSharedMessage');
   String get meetingWarning => _t('meetingWarning');
@@ -229,7 +232,7 @@ class AppLocalizations {
   String get password => _t('password');
   String get smsCode => _t('smsCode');
   String get enterSmsCode => _t('enterSmsCode');
-  String get cancel => _t('cancel');
+  String get cancelled => _t('cancelled');
   String get verify => _t('verify');
   String get transactionType => _t('transactionType');
   String get save => _t('save');

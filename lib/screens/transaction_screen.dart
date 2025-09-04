@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:location/location.dart';
 import 'package:cashlink/l10n/app_localizations.dart';
 import 'dart:math'; // Ensure this is present
+import 'package:flutter/services.dart';
 
 class TransactionScreen extends StatefulWidget {
   const TransactionScreen({super.key});
@@ -338,7 +339,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _amountController,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                      ],
                       decoration: InputDecoration(
                         labelText: loc.amount,
                         prefixIcon: const Icon(Icons.attach_money),
