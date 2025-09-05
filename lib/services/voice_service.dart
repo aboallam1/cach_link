@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class VoiceService {
@@ -8,33 +9,49 @@ class VoiceService {
   bool _isEnabled = true;
 
   Future<void> initialize() async {
-    // No initialization needed for system sounds
+    // No initialization needed
   }
 
-  Future<void> _playSystemAlert(SystemSoundType soundType) async {
+  Future<void> _playAlert(String alertType) async {
     if (!_isEnabled) return;
     
     try {
-      await SystemSound.play(soundType);
+      if (kIsWeb) {
+        // For web, we'll use console output and attempt system sound
+        print('🔊 Alert: $alertType');
+        // Try to use the browser's notification sound
+        await SystemSound.play(SystemSoundType.alert);
+      } else {
+        // For mobile platforms
+        await SystemSound.play(SystemSoundType.alert);
+        // Add haptic feedback for mobile
+        HapticFeedback.mediumImpact();
+      }
     } catch (e) {
-      print('Error playing system alert: $e');
+      print('Error playing alert: $e');
+      // Fallback to haptic feedback
+      try {
+        HapticFeedback.lightImpact();
+      } catch (e2) {
+        print('Haptic feedback also failed: $e2');
+      }
     }
   }
 
   Future<void> speakExchangeRequest(String userName) async {
-    await _playSystemAlert(SystemSoundType.alert);
+    await _playAlert('Exchange Request from $userName');
   }
 
   Future<void> speakRequestAccepted(String userName) async {
-    await _playSystemAlert(SystemSoundType.click);
+    await _playAlert('Request Accepted by $userName');
   }
 
   Future<void> speakRequestSent() async {
-    await _playSystemAlert(SystemSoundType.click);
+    await _playAlert('Request Sent');
   }
 
   Future<void> speakTransactionCompleted() async {
-    await _playSystemAlert(SystemSoundType.click);
+    await _playAlert('Transaction Completed');
   }
 
   void setEnabled(bool enabled) {
@@ -44,10 +61,10 @@ class VoiceService {
   bool get isEnabled => _isEnabled;
 
   Future<void> stop() async {
-    // No need to stop system sounds
+    // No need to stop
   }
 
   void dispose() {
-    // No resources to dispose for system sounds
+    // No resources to dispose
   }
 }
