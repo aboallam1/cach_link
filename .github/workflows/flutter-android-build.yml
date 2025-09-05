@@ -1,4 +1,4 @@
-name: Build Flutter App
+name: Build Flutter App (Android & iOS)
 
 on:
   push:
@@ -21,11 +21,20 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload Android Artifact
+      - name: Build AAB
+        run: flutter build appbundle --release
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/Cashlink-Debug-APK.apk
+          path: build/app/outputs/flutter-apk/CashLink-app-release.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/CashLink-app-release.aab
 
   build-ios:
     runs-on: macos-latest
@@ -39,11 +48,24 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build iOS
+      - name: Build iOS .app
         run: flutter build ios --release --no-codesign
 
-      - name: Upload iOS Artifact
+      - name: Upload .app
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
           path: build/ios/iphoneos/*.app
+
+      - name: Build .ipa
+        run: |
+          mkdir Payload
+          cp -r build/ios/iphoneos/*.app Payload/
+          zip -r ios-app.ipa Payload
+        shell: bash
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ios-app.ipa
