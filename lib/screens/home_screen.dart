@@ -41,14 +41,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     final kycVerified = doc.data()?['KYC_verified'] ?? false;
     final hasIdImage = doc.data()?['idImageUrl'] != null && (doc.data()?['idImageUrl'] as String).isNotEmpty;
-    if (doc.exists && doc['name'] != null && doc['gender'] != null ) {
+    if (doc.exists && doc['name'] != null && doc['gender'] != null && kycVerified && hasIdImage) {
       setState(() {
         _profileComplete = true;
         _loading = false;
       });
     } else {
+      setState(() {
+        _profileComplete = true;
+        _loading = false;
+      });
       // If missing ID image, redirect to profile page to upload
-      Navigator.of(context).pushReplacementNamed('/profile');
+      // Navigator.of(context).pushReplacementNamed('/profile');
     }
   }
 
