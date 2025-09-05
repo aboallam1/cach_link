@@ -100,7 +100,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _showTransactionDetails(Map<String, dynamic> data) async {
     final loc = AppLocalizations.of(context)!;
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Optionally show a dialog or redirect to login
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User not logged in. Please login again.')),
+        );
+        Navigator.of(context).pushReplacementNamed('/auth');
+      }
+      return;
+    }
     final otherUID = data['exchangeRequestedBy'] != null &&
             data['exchangeRequestedBy'] != user.uid
         ? data['exchangeRequestedBy']
@@ -326,14 +336,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   void _showCompletedTransactionDetails(Map<String, dynamic> data) async {
     final loc = AppLocalizations.of(context)!;
-    final user = FirebaseAuth.instance.currentUser!;
-    
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User not logged in. Please login again.')),
+        );
+        Navigator.of(context).pushReplacementNamed('/auth');
+      }
+      return;
+    }
+
     // Get partner transaction data if available
     Map<String, dynamic>? partnerData;
     if (data['partnerTxId'] != null) {
@@ -619,8 +637,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _infoRow(String title, String value) {
@@ -653,7 +670,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Show a loading indicator or redirect to login
+      return Scaffold(
+        body: Center(child: Text('User not logged in. Please login.')),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(loc.transactionHistory)),

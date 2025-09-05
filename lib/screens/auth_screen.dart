@@ -72,6 +72,15 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
+      // Null check for _verificationId
+      if (_verificationId == null || _smsController.text.trim().isEmpty) {
+        setState(() {
+          _error = 'Verification code is missing. Please try again.';
+          _loading = false;
+        });
+        return;
+      }
+
       // Verify OTP with Firebase Auth
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
@@ -141,6 +150,15 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           ElevatedButton(
             onPressed: () {
+              // Prevent null check error if _verificationId is null
+              if (_verificationId == null) {
+                setState(() {
+                  _error = 'Verification ID missing. Please try again.';
+                  _loading = false;
+                });
+                Navigator.of(ctx).pop();
+                return;
+              }
               Navigator.of(ctx).pop();
               _verifySmsCodeAndLogin();
             },

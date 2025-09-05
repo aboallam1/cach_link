@@ -72,6 +72,15 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     try {
+      // Null check for _verificationId
+      if (_verificationId == null || _smsController.text.trim().isEmpty) {
+        setState(() {
+          _error = 'Verification code is missing. Please try again.';
+          _loading = false;
+        });
+        return;
+      }
+
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: _smsController.text.trim(),
@@ -125,6 +134,15 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
           ElevatedButton(
             onPressed: () {
+              // Prevent null check error if _verificationId is null
+              if (_verificationId == null) {
+                setState(() {
+                  _error = 'Verification ID missing. Please try again.';
+                  _loading = false;
+                });
+                Navigator.of(ctx).pop();
+                return;
+              }
               Navigator.of(ctx).pop();
               _verifySmsCodeAndSignup();
             },
