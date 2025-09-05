@@ -25,7 +25,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/Cash Link.apk
+          path: build/app/outputs/flutter-apk/Cash-Link.apk
 
   build-ios:
     runs-on: macos-latest
@@ -46,4 +46,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
-          path: build/ios/iphoneos/Cash Link.app
+          path: build/ios/iphoneos/*.app
