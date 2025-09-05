@@ -6,6 +6,7 @@ import 'package:cashlink/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'package:cashlink/services/voice_service.dart';
 
 class AgreementScreen extends StatefulWidget {
   const AgreementScreen({super.key});
@@ -181,6 +182,9 @@ class _AgreementScreenState extends State<AgreementScreen> {
           'completedAt': FieldValue.serverTimestamp()
         },
       );
+
+      // Play voice notification for transaction completion
+      VoiceService().speakTransactionCompleted();
 
       // Get the other user's ID for rating
       final otherUserId = otherData['userId'] as String?;

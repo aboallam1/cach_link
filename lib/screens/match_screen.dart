@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 import 'package:cashlink/l10n/app_localizations.dart';
+import 'package:cashlink/services/voice_service.dart';
 import 'dart:async';
 
 class MatchScreen extends StatefulWidget {
@@ -345,6 +346,9 @@ class _MatchScreenState extends State<MatchScreen> {
 
     await batch.commit();
 
+    // Play voice notification for sending request
+    VoiceService().speakRequestSent();
+
     if (!mounted) return;
     Navigator.of(context).pushNamed('/agreement', arguments: {
       'myTxId': _myTx!.id,
@@ -371,6 +375,15 @@ class _MatchScreenState extends State<MatchScreen> {
       });
       
       await batch.commit();
+
+      // Get requester's name and play voice notification
+      final txData = tx.data() as Map<String, dynamic>;
+      final requesterUserId = txData['exchangeRequestedBy'];
+      if (requesterUserId != null) {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(requesterUserId).get();
+        final userName = userDoc.data()?['name'] ?? 'User';
+        VoiceService().speakRequestAccepted(userName);
+      }
       
       if (!mounted) return;
       Navigator.of(context).pushNamed('/agreement', arguments: {

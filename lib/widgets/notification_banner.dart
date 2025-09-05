@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cashlink/l10n/app_localizations.dart';
 import 'package:cashlink/services/notification_service.dart';
+import 'package:cashlink/services/voice_service.dart';
 import 'dart:async';
 
 class NotificationBanner extends StatefulWidget {
@@ -44,6 +45,25 @@ class _NotificationBannerState extends State<NotificationBanner>
     
     _animationController.forward();
     _startTimer();
+
+    // Play voice notification when banner is shown
+    _playVoiceNotification();
+  }
+
+  void _playVoiceNotification() async {
+    // Get the sender's name from the notification data
+    final fromUserId = widget.data['fromUserId'];
+    if (fromUserId != null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(fromUserId).get();
+        final userName = userDoc.data()?['name'] ?? 'User';
+        VoiceService().speakExchangeRequest(userName);
+      } catch (e) {
+        VoiceService().speakExchangeRequest('User');
+      }
+    } else {
+      VoiceService().speakExchangeRequest('User');
+    }
   }
 
   void _startTimer() {

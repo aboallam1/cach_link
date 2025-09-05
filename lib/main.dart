@@ -20,12 +20,17 @@ import 'screens/notifications_screen.dart';
 import 'widgets/request_banner.dart';
 import 'widgets/request_notification_overlay.dart';
 import 'services/notification_service.dart';
+import 'services/voice_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize audio service for alert tones
+  await VoiceService().initialize();
+  
   runApp(const MyApp());
 }
 
