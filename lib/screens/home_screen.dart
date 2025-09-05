@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     final kycVerified = doc.data()?['KYC_verified'] ?? false;
     final hasIdImage = doc.data()?['idImageUrl'] != null && (doc.data()?['idImageUrl'] as String).isNotEmpty;
-    if (doc.exists && doc['name'] != null && doc['gender'] != null && kycVerified && hasIdImage) {
+    if (doc.exists && doc['name'] != null && doc['gender'] != null ) {
       setState(() {
         _profileComplete = true;
         _loading = false;
