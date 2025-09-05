@@ -2,4 +2,9 @@
 
 You can customize the launch screen with your own desired assets by replacing the image files in this directory.
 
-You can also do it by opening your Flutter project's Xcode project with `open ios/Runner.xcworkspace`, selecting `Runner/Assets.xcassets` in the Project Navigator and dropping in the desired images.
+Add the following files:
+- LaunchImage.png (168x168)
+- LaunchImage@2x.png (336x336) 
+- LaunchImage@3x.png (504x504)
+
+These should be your CashLink logo/icon in PNG format.

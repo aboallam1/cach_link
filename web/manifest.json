@@ -1,11 +1,11 @@
 {
-    "name": "cashlink",
-    "short_name": "cashlink",
+    "name": "CashLink",
+    "short_name": "CashLink",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#E53935",
+    "description": "Fast Peer-to-Peer Cash Exchange",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
