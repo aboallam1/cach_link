@@ -80,7 +80,7 @@ class _SignupScreenState extends State<SignupScreen> {
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // إنشاء المستخدم في Firestore
+      // Create user in Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -90,6 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
         'password': _password,
         'gender': _gender,
         'rating': 5.0,
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
@@ -245,27 +246,8 @@ class _SignupScreenState extends State<SignupScreen> {
                         : ElevatedButton(
                             onPressed: () async {
                               if (_formKey.currentState!.validate()) {
-                                setState(() => _loading = true);
-                                try {
-                                  // Add your signup logic here (Firebase Auth, Firestore, etc.)
-                                  final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-                                    email: "${_phone.trim()}@cashlink.app",
-                                    password: _password,
-                                  );
-                                  await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-                                    'name': _name.trim(),
-                                    'gender': _gender,
-                                    'phone': _fullPhoneNumber,
-                                  });
-                                  if (mounted) {
-                                    Navigator.of(context).pushReplacementNamed('/home');
-                                  }
-                                } catch (e) {
-                                  setState(() {
-                                    _error = e.toString();
-                                    _loading = false;
-                                  });
-                                }
+                                // Use phone authentication instead of email/password
+                                _startPhoneVerification();
                               }
                             },
                             child: Text(loc.signup),

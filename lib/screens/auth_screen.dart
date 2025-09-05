@@ -107,12 +107,6 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      // Update UID in Firestore to match Firebase Auth
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userDoc.id)
-          .update({'uid': userCredential.user!.uid});
-
       // Navigate to home
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');
@@ -247,8 +241,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     _loading
                         ? const CircularProgressIndicator()
                         : ElevatedButton(
-                            onPressed: () {
+                            onPressed: _loading ? null : () async {
                               if (_formKey.currentState!.validate()) {
+                                // Use phone authentication instead of email/password
                                 _startPhoneLogin();
                               }
                             },
