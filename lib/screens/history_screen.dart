@@ -336,7 +336,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ],
           ),
         ),
-      );
+      ),
+    );
   }
 
   void _showCompletedTransactionDetails(Map<String, dynamic> data) async {
@@ -637,7 +638,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _infoRow(String title, String value) {
