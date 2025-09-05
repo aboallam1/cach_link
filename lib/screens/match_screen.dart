@@ -15,24 +15,23 @@ class MatchScreen extends StatefulWidget {
 
 class _MatchScreenState extends State<MatchScreen> {
   List<DocumentSnapshot> _matches = [];
+  List<DocumentSnapshot> _bestChoices = [];
   bool _loading = true;
-  String _filterType = "distance";
+  String _filterType = "best"; // Default to "best" for best choice algorithm
   Map<String, dynamic>? _myLoc;
   double _myAmount = 0;
   DocumentSnapshot? _myTx;
-  int _searchRadius = 10; // km
+  int _searchRadius = 50; // Increased default radius to show more users
   bool _lockActive = false;
   DateTime? _lockUntil;
   bool _noCandidates = false;
-  bool _canLeave = false; // Add this flag
-  bool _showSaveButton = false; // Add this flag
+  bool _canLeave = false;
+  bool _showSaveButton = false;
   Timer? _expiryTimer;
   Timer? _refreshTimer;
   Duration _remaining = const Duration(minutes: 30);
   StreamSubscription<DocumentSnapshot>? _myTxListener;
 
-  // Replace all _type, _amountController, _location with public fields or pass them as arguments.
-  // Add these fields at the top of your _MatchScreenState if you want to access the last transaction request:
   String? lastType;
   String? lastAmount;
   Map<String, dynamic>? lastLocation;
@@ -44,7 +43,6 @@ class _MatchScreenState extends State<MatchScreen> {
     _startExpiryTimer();
     _startAutoRefresh();
 
-    // Listen for status changes to "rejected" and redirect to match page
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupRejectedListener();
     });
@@ -107,7 +105,6 @@ class _MatchScreenState extends State<MatchScreen> {
           if (diff.isNegative) {
             _archiveTransaction();
             _remaining = Duration.zero;
-            // Navigate to home page when expired
             if (mounted) {
               Future.microtask(() {
                 Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
@@ -124,7 +121,6 @@ class _MatchScreenState extends State<MatchScreen> {
                 setState(() {
                   _remaining = Duration.zero;
                 });
-                // Navigate to home page when expired
                 if (mounted) {
                   Future.microtask(() {
                     Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
@@ -158,6 +154,7 @@ class _MatchScreenState extends State<MatchScreen> {
       _loading = true;
       _noCandidates = false;
     });
+    
     final currentUser = FirebaseAuth.instance.currentUser!;
     final now = DateTime.now();
     final txs = await FirebaseFirestore.instance
@@ -171,18 +168,21 @@ class _MatchScreenState extends State<MatchScreen> {
       if (!mounted) return;
       setState(() {
         _matches = [];
+        _bestChoices = [];
         _loading = false;
       });
       return;
     }
+    
     _myTx = txs.docs.first;
-    _startExpiryTimer(); // Restart timer when transaction changes
+    _startExpiryTimer();
     final myData = _myTx!.data() as Map<String, dynamic>?;
 
     if (myData == null || !myData.containsKey('type') || !myData.containsKey('amount') || !myData.containsKey('location')) {
       if (!mounted) return;
       setState(() {
         _matches = [];
+        _bestChoices = [];
         _loading = false;
       });
       return;
@@ -193,11 +193,11 @@ class _MatchScreenState extends State<MatchScreen> {
     _myLoc = myData['location'];
     final oppType = myType == 'Deposit' ? 'Withdraw' : 'Deposit';
 
-    // Include both 'pending' and 'requested' transactions
+    // Get ALL users with reverse transaction type
     final candidatesSnap = await FirebaseFirestore.instance
         .collection('transactions')
         .where('type', isEqualTo: oppType)
-        .where('status', whereIn: ['pending', 'requested'])
+        .where('status', whereIn: ['pending', 'requested', 'active'])
         .get();
 
     List<DocumentSnapshot> candidates = [];
@@ -211,7 +211,7 @@ class _MatchScreenState extends State<MatchScreen> {
       if (data['userId'] == currentUser.uid) continue;
 
       final expiresAt = DateTime.tryParse(data['expiresAt']);
-      if (expiresAt == null || expiresAt.isBefore(now)) continue; // skip expired
+      if (expiresAt == null || expiresAt.isBefore(now)) continue;
 
       final loc = data['location'];
       double d = 0.0;
@@ -223,57 +223,128 @@ class _MatchScreenState extends State<MatchScreen> {
       }
     }
 
-    // Find closest to GPS
-    DocumentSnapshot? closestByGps;
-    double minDist = double.infinity;
-    for (var doc in candidates) {
-      final data = doc.data() as Map<String, dynamic>;
-      final loc = data['location'];
-      double d = double.infinity;
-      if (_myLoc != null && loc != null && loc['lat'] != null && loc['lng'] != null) {
-        d = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
-      }
-      if (d < minDist) {
-        minDist = d;
-        closestByGps = doc;
-      }
-    }
-
-    // Find closest by amount
-    DocumentSnapshot? closestByAmount;
-    double minAmountDiff = double.infinity;
-    for (var doc in candidates) {
-      final data = doc.data() as Map<String, dynamic>;
-      final amt = data['amount'];
-      final diff = (amt - _myAmount).abs();
-      if (diff < minAmountDiff) {
-        minAmountDiff = diff;
-        closestByAmount = doc;
-      }
-    }
-
-    // If both are the same, suggest only one
-    List<DocumentSnapshot> matches = [];
-    if (closestByGps != null && closestByGps.id == closestByAmount?.id) {
-      matches = [closestByGps];
-    } else {
-      if (closestByGps != null) matches.add(closestByGps);
-      if (closestByAmount != null && closestByAmount.id != closestByGps?.id) matches.add(closestByAmount);
-    }
+    // Find best matches
+    List<DocumentSnapshot> matches = _findBestMatches(candidates);
+    List<DocumentSnapshot> bestChoices = matches.isNotEmpty ? [matches.first] : [];
 
     setState(() {
       _matches = matches;
+      _bestChoices = bestChoices;
       _loading = false;
       _noCandidates = matches.isEmpty;
     });
   }
 
+  // Smart algorithm to find 1-2 best matches
+  List<DocumentSnapshot> _findBestMatches(List<DocumentSnapshot> candidates) {
+    if (candidates.isEmpty) return [];
+
+    DocumentSnapshot? bestByAmount;
+    DocumentSnapshot? bestByDistance;
+    double bestAmountDiff = double.infinity;
+    double bestDistanceValue = double.infinity;
+
+    // Find best by amount and best by distance
+    for (var candidate in candidates) {
+      final data = candidate.data() as Map<String, dynamic>;
+      
+      // Check amount difference
+      final amount = data['amount'] ?? 0.0;
+      final amountDiff = (amount - _myAmount).abs();
+      if (amountDiff < bestAmountDiff) {
+        bestAmountDiff = amountDiff;
+        bestByAmount = candidate;
+      }
+      
+      // Check distance
+      final loc = data['location'];
+      if (_myLoc != null && loc != null && loc['lat'] != null && loc['lng'] != null) {
+        final distance = _distance(_myLoc!['lat'], _myLoc!['lng'], loc['lat'], loc['lng']);
+        if (distance < bestDistanceValue) {
+          bestDistanceValue = distance;
+          bestByDistance = candidate;
+        }
+      }
+    }
+
+    // Return results
+    List<DocumentSnapshot> results = [];
+    
+    if (bestByAmount != null && bestByDistance != null) {
+      if (bestByAmount.id == bestByDistance.id) {
+        // Same user is best in both - show only one
+        results.add(bestByAmount);
+      } else {
+        // Different users - show both, best overall first
+        DocumentSnapshot overallBest = _getOverallBest(bestByAmount, bestByDistance);
+        DocumentSnapshot other = (overallBest.id == bestByAmount.id) ? bestByDistance : bestByAmount;
+        results.add(overallBest);
+        results.add(other);
+      }
+    } else if (bestByAmount != null) {
+      results.add(bestByAmount);
+    } else if (bestByDistance != null) {
+      results.add(bestByDistance);
+    }
+
+    return results;
+  }
+
+  // Determine overall best between two candidates
+  DocumentSnapshot _getOverallBest(DocumentSnapshot candidate1, DocumentSnapshot candidate2) {
+    final data1 = candidate1.data() as Map<String, dynamic>;
+    final data2 = candidate2.data() as Map<String, dynamic>;
+    
+    double score1 = 0.0;
+    double score2 = 0.0;
+    
+    // Score by amount similarity (max 50 points)
+    final amount1 = data1['amount'] ?? 0.0;
+    final amount2 = data2['amount'] ?? 0.0;
+    final amountDiff1 = (amount1 - _myAmount).abs();
+    final amountDiff2 = (amount2 - _myAmount).abs();
+    
+    if (amountDiff1 == 0) score1 += 50;
+    else if (amountDiff1 <= 100) score1 += 40;
+    else if (amountDiff1 <= 500) score1 += 30;
+    else if (amountDiff1 <= 1000) score1 += 20;
+    
+    if (amountDiff2 == 0) score2 += 50;
+    else if (amountDiff2 <= 100) score2 += 40;
+    else if (amountDiff2 <= 500) score2 += 30;
+    else if (amountDiff2 <= 1000) score2 += 20;
+    
+    // Score by distance (max 50 points)
+    if (_myLoc != null) {
+      final loc1 = data1['location'];
+      final loc2 = data2['location'];
+      
+      if (loc1 != null && loc1['lat'] != null && loc1['lng'] != null) {
+        final dist1 = _distance(_myLoc!['lat'], _myLoc!['lng'], loc1['lat'], loc1['lng']);
+        if (dist1 <= 1) score1 += 50;
+        else if (dist1 <= 5) score1 += 40;
+        else if (dist1 <= 10) score1 += 30;
+        else if (dist1 <= 20) score1 += 20;
+      }
+      
+      if (loc2 != null && loc2['lat'] != null && loc2['lng'] != null) {
+        final dist2 = _distance(_myLoc!['lat'], _myLoc!['lng'], loc2['lat'], loc2['lng']);
+        if (dist2 <= 1) score2 += 50;
+        else if (dist2 <= 5) score2 += 40;
+        else if (dist2 <= 10) score2 += 30;
+        else if (dist2 <= 20) score2 += 20;
+      }
+    }
+    
+    return score1 >= score2 ? candidate1 : candidate2;
+  }
+
   Future<void> _expandSearch() async {
-    if (_searchRadius < 50) {
+    if (_searchRadius < 100) {
       if (!mounted) return;
       setState(() {
-        _searchRadius += 10;
-        _showSaveButton = true; // Show save button after expanding search
+        _searchRadius += 25;
+        _showSaveButton = true;
       });
       await _findMatches();
     }
@@ -284,7 +355,7 @@ class _MatchScreenState extends State<MatchScreen> {
     final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
         cos(lat1 * p) * cos(lat2 * p) *
             (1 - cos((lon2 - lon1) * p)) / 2;
-    return 12742 * asin(sqrt(a)); // in km
+    return 12742 * asin(sqrt(a));
   }
 
   double _calculateDistance(DocumentSnapshot otherTx) {
@@ -306,7 +377,6 @@ class _MatchScreenState extends State<MatchScreen> {
     if (_myTx == null) return;
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-    // Lock sender for 60s
     setState(() {
       _lockActive = true;
       _lockUntil = DateTime.now().add(const Duration(seconds: 60));
@@ -316,12 +386,16 @@ class _MatchScreenState extends State<MatchScreen> {
     final otherRef = FirebaseFirestore.instance.collection('transactions').doc(otherTx.id);
 
     final batch = FirebaseFirestore.instance.batch();
+    
+    // Update only MY transaction to show I sent a request
     batch.update(myRef, {
       'status': 'requested',
       'partnerTxId': otherTx.id,
       'exchangeRequestedBy': currentUserId,
       'lockUntil': Timestamp.fromDate(_lockUntil!),
     });
+    
+    // Update only the SPECIFIC OTHER transaction to show they have a request
     batch.update(otherRef, {
       'status': 'requested',
       'partnerTxId': _myTx!.id,
@@ -329,7 +403,7 @@ class _MatchScreenState extends State<MatchScreen> {
       'lockUntil': Timestamp.fromDate(_lockUntil!),
     });
 
-    // Create notification for the other user
+    // Create notification only for the specific user
     final notificationRef = FirebaseFirestore.instance.collection('notifications').doc();
     batch.set(notificationRef, {
       'id': notificationRef.id,
@@ -346,7 +420,6 @@ class _MatchScreenState extends State<MatchScreen> {
 
     await batch.commit();
 
-    // Play voice notification for sending request
     VoiceService().speakRequestSent();
 
     if (!mounted) return;
@@ -360,11 +433,11 @@ class _MatchScreenState extends State<MatchScreen> {
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
     if (accept) {
-      // Update both transactions to accepted status
       final batch = FirebaseFirestore.instance.batch();
       final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
       final otherRef = FirebaseFirestore.instance.collection('transactions').doc(tx.id);
       
+      // Accept the request - update both specific transactions
       batch.update(myRef, {
         'status': 'accepted',
         'acceptedAt': FieldValue.serverTimestamp(),
@@ -376,7 +449,6 @@ class _MatchScreenState extends State<MatchScreen> {
       
       await batch.commit();
 
-      // Get requester's name and play voice notification
       final txData = tx.data() as Map<String, dynamic>;
       final requesterUserId = txData['exchangeRequestedBy'];
       if (requesterUserId != null) {
@@ -391,30 +463,42 @@ class _MatchScreenState extends State<MatchScreen> {
         'otherTxId': tx.id,
       });
     } else {
-      await FirebaseFirestore.instance.collection('transactions').doc(tx.id).update({'status': 'rejected'});
-      // Unlock sender immediately
+      // Reject the request - reset both specific transactions to pending
+      final batch = FirebaseFirestore.instance.batch();
+      final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
+      final otherRef = FirebaseFirestore.instance.collection('transactions').doc(tx.id);
+      
+      batch.update(myRef, {
+        'status': 'pending',
+        'partnerTxId': FieldValue.delete(),
+        'exchangeRequestedBy': FieldValue.delete(),
+        'lockUntil': FieldValue.delete(),
+      });
+      batch.update(otherRef, {
+        'status': 'pending',
+        'partnerTxId': FieldValue.delete(),
+        'exchangeRequestedBy': FieldValue.delete(),
+        'lockUntil': FieldValue.delete(),
+      });
+      
+      await batch.commit();
+
       if (!mounted) return;
       setState(() {
         _lockActive = false;
         _lockUntil = null;
       });
-      // Use microtask to ensure navigation after dialog closes
-      Future.microtask(() {
-        if (mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-          Navigator.of(context).pushReplacementNamed('/match');
-        }
-      });
+      
+      // Refresh matches after rejection
+      await _findMatches();
     }
   }
 
   Future<bool> _onWillPop() async {
-    // Prevent back navigation until Save or Cancel is pressed
     return _canLeave;
   }
 
   Future<void> _saveRequestInRadius() async {
-    // Update the searchRadius of the current transaction instead of creating a new one
     if (_myTx != null) {
       await FirebaseFirestore.instance
           .collection('transactions')
@@ -444,7 +528,7 @@ class _MatchScreenState extends State<MatchScreen> {
     setState(() {
       _canLeave = true;
     });
-    Navigator.of(context).pop(); // Allow leaving after cancel
+    Navigator.of(context).pop();
   }
 
   @override
@@ -453,7 +537,6 @@ class _MatchScreenState extends State<MatchScreen> {
     String timerText =
         "${_remaining.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(_remaining.inSeconds.remainder(60)).toString().padLeft(2, '0')}";
 
-    // Calculate progress for the timer line (1.0 = full, 0.0 = expired)
     double timerProgress = _remaining.inSeconds / (30 * 60);
 
     Color timerColor;
@@ -482,7 +565,7 @@ class _MatchScreenState extends State<MatchScreen> {
               child: Column(
                 children: [
                   Text(
-                    "${loc.expiresIn}: $timerText", // Use localized "Expires in"
+                    "${loc.expiresIn}: $timerText",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -512,12 +595,16 @@ class _MatchScreenState extends State<MatchScreen> {
                 ),
                 items: [
                   DropdownMenuItem(
+                    value: "best",
+                    child: Text("🎯 Smart Match"),
+                  ),
+                  DropdownMenuItem(
                     value: "distance",
-                    child: Text(loc.distance),
+                    child: Text("📍 ${loc.distance}"),
                   ),
                   DropdownMenuItem(
                     value: "amount",
-                    child: Text(loc.amount),
+                    child: Text("💰 ${loc.amount}"),
                   ),
                 ],
                 onChanged: (val) {
@@ -528,21 +615,44 @@ class _MatchScreenState extends State<MatchScreen> {
                 },
               ),
             ),
+            if (_matches.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.star, color: Colors.amber.shade700),
+                    const SizedBox(width: 8),
+                    Text(
+                      _matches.length == 1 ? "Perfect Match Found!" : "Top 2 Best Matches",
+                      style: TextStyle(
+                        color: Colors.amber.shade800,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (_noCandidates)
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
                     Text(
-                      _searchRadius < 50
-                          ? "${loc.noUsersFoundIn} $_searchRadius ${loc.km}" // Add to localization if needed
+                      _searchRadius < 100
+                          ? "${loc.noUsersFoundIn} $_searchRadius ${loc.km}"
                           : loc.noUsersAvailableRequestSaved ?? "Sorry, no users available at the moment, your request was saved",
                       style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                     ),
-                    if (_searchRadius < 50)
+                    if (_searchRadius < 100)
                       ElevatedButton(
                         onPressed: _expandSearch,
-                        child: Text(loc.expandSearch), // Add to localization if needed
+                        child: Text(loc.expandSearch),
                       ),
                   ],
                 ),
@@ -550,7 +660,7 @@ class _MatchScreenState extends State<MatchScreen> {
             if (!_noCandidates)
               Expanded(
                 child: ListView.builder(
-                  itemCount: _matches.length > 2 ? 2 : _matches.length,
+                  itemCount: _matches.length,
                   itemBuilder: (ctx, i) {
                     final tx = _matches[i];
                     final txData = tx.data() as Map<String, dynamic>?;
@@ -558,6 +668,9 @@ class _MatchScreenState extends State<MatchScreen> {
                     if (txData == null || !txData.containsKey('userId')) {
                       return ListTile(title: Text(loc.noTransactions));
                     }
+
+                    // First match is always the best (gold highlight)
+                    bool isBestMatch = (i == 0);
 
                     return FutureBuilder<DocumentSnapshot>(
                       future: FirebaseFirestore.instance.collection('users').doc(txData['userId']).get(),
@@ -570,145 +683,351 @@ class _MatchScreenState extends State<MatchScreen> {
                           dist = _distance(_myLoc!['lat'], _myLoc!['lng'], locData['lat'], locData['lng']);
                         }
 
-                        // If there is an exchange request from the other party
-                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
-                          return Card(
-                            elevation: 4,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(radius: 28, backgroundColor: Colors.blueGrey.shade50, child: Icon(Icons.person, color: Colors.blueGrey)),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 6),
-                                        Text('${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', style: TextStyle(color: Colors.grey[700])),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    children: [
-                                      ElevatedButton(
-                                        onPressed: () => _respondToRequest(tx, true),
-                                        child: Text(loc.accept),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      OutlinedButton(
-                                        onPressed: () => _respondToRequest(tx, false),
-                                        child: Text(loc.reject),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                        Widget statusIcon = Container();
+                        if (isBestMatch) {
+                          statusIcon = Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.amber.shade300, Colors.amber.shade100],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.amber.shade600, width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.amber.shade200,
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                          );
-                        }
-
-                        // If this card is a request sent by the current user, show disabled Exchange/Cancel buttons
-                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] == FirebaseAuth.instance.currentUser!.uid) {
-                          return Card(
-                            elevation: 4,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 28,
-                                    backgroundColor: _myLoc != null ? Colors.green.shade50 : Colors.grey.shade200,
-                                    child: Icon(
-                                      (txData?['type'] as String?) == 'Deposit' ? Icons.monetization_on : Icons.account_balance_wallet,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 6),
-                                        Text('${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', style: TextStyle(color: Colors.grey[700])),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    children: [
-                                      ElevatedButton(
-                                        onPressed: null, // Disable Exchange button
-                                        child: Text(loc.exchangeRequestFrom),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      OutlinedButton(
-                                        onPressed: null, // Disable Cancel button
-                                        child: Text(loc.cancel),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
-
-                        // Normal cards (can send Exchange Request)
-                        return Card(
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                CircleAvatar(
-                                  radius: 28,
-                                  backgroundColor: _myLoc != null ? Colors.green.shade50 : Colors.grey.shade200,
-                                  child: Icon(
-                                    (txData?['type'] as String?) == 'Deposit' ? Icons.monetization_on : Icons.account_balance_wallet,
-                                    color: Colors.green,
+                                Icon(Icons.star, size: 16, color: Colors.amber.shade800),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "BEST MATCH",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber.shade900,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 6),
-                                      Text('${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', style: TextStyle(color: Colors.grey[700])),
-                                    ],
-                                  ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: isBestMatch 
+                                  ? Border.all(color: Colors.amber.shade400, width: 3)
+                                  : null,
+                              gradient: isBestMatch 
+                                  ? LinearGradient(
+                                      colors: [Colors.amber.shade50, Colors.white],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
+                              boxShadow: isBestMatch ? [
+                                BoxShadow(
+                                  color: Colors.amber.shade200,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
                                 ),
-                                Column(
+                              ] : null,
+                            ),
+                            child: Card(
+                              elevation: isBestMatch ? 12 : 4,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              margin: EdgeInsets.zero,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
                                   children: [
-                                    ElevatedButton(
-                                      onPressed: _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? null : () => _sendExchangeRequest(tx, user.id),
-                                      child: Text(_lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)" : loc.exchangeRequestFrom),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    OutlinedButton(
-                                      onPressed: _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? null : () {
-                                        if (_myTx != null) {
-                                          FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id).update({'status': 'cancelled'});
-                                          setState(() {
-                                            _lockActive = false;
-                                            _lockUntil = null;
-                                          });
-                                        }
-                                      },
-                                      child: Text(loc.cancel),
+                                    if (isBestMatch) ...[
+                                      statusIcon,
+                                      const SizedBox(height: 12),
+                                    ],
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 32,
+                                          backgroundColor: isBestMatch ? Colors.amber.shade100 : Colors.blueGrey.shade50,
+                                          child: Icon(
+                                            Icons.person, 
+                                            color: isBestMatch ? Colors.amber.shade700 : Colors.blueGrey,
+                                            size: 32,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: isBestMatch ? Colors.amber.shade900 : null,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                '${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km',
+                                                style: TextStyle(
+                                                  color: isBestMatch ? Colors.amber.shade700 : Colors.grey[700],
+                                                  fontWeight: isBestMatch ? FontWeight.w600 : null,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Column(
+                                          children: [
+                                            ElevatedButton(
+                                              onPressed: () => _respondToRequest(tx, true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: isBestMatch ? Colors.amber.shade600 : null,
+                                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                              ),
+                                              child: Text(
+                                                loc.accept,
+                                                style: TextStyle(
+                                                  fontWeight: isBestMatch ? FontWeight.bold : null,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            OutlinedButton(
+                                              onPressed: () => _respondToRequest(tx, false),
+                                              style: OutlinedButton.styleFrom(
+                                                side: BorderSide(
+                                                  color: isBestMatch ? Colors.amber.shade600 : Colors.grey,
+                                                ),
+                                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                              ),
+                                              child: Text(
+                                                loc.reject,
+                                                style: TextStyle(
+                                                  color: isBestMatch ? Colors.amber.shade700 : null,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] == FirebaseAuth.instance.currentUser!.uid) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: isBestMatch 
+                                  ? Border.all(color: Colors.amber.shade400, width: 3)
+                                  : null,
+                            ),
+                            child: Card(
+                              elevation: isBestMatch ? 8 : 4,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              margin: EdgeInsets.zero,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    if (isBestMatch) ...[
+                                      statusIcon,
+                                      const SizedBox(height: 12),
+                                    ],
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 32,
+                                          backgroundColor: isBestMatch ? Colors.amber.shade100 : Colors.green.shade50,
+                                          child: Icon(
+                                            (txData?['type'] as String?) == 'Deposit' ? Icons.monetization_on : Icons.account_balance_wallet,
+                                            color: isBestMatch ? Colors.amber.shade700 : Colors.green,
+                                            size: 32,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', 
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: isBestMatch ? Colors.amber.shade900 : null,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                '${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', 
+                                                style: TextStyle(
+                                                  color: isBestMatch ? Colors.amber.shade700 : Colors.grey[700],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Column(
+                                          children: [
+                                            ElevatedButton(
+                                              onPressed: null,
+                                              child: Text(loc.exchangeRequestFrom),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            OutlinedButton(
+                                              onPressed: null,
+                                              child: Text(loc.cancel),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: isBestMatch 
+                                ? Border.all(color: Colors.amber.shade400, width: 3)
+                                : null,
+                            gradient: isBestMatch 
+                                ? LinearGradient(
+                                    colors: [Colors.amber.shade50, Colors.white],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : null,
+                            boxShadow: isBestMatch ? [
+                              BoxShadow(
+                                color: Colors.amber.shade200,
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ] : null,
+                          ),
+                          child: Card(
+                            elevation: isBestMatch ? 12 : 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            margin: EdgeInsets.zero,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  if (isBestMatch) ...[
+                                    statusIcon,
+                                    const SizedBox(height: 12),
+                                  ],
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 32,
+                                        backgroundColor: isBestMatch ? Colors.amber.shade100 : Colors.green.shade50,
+                                        child: Icon(
+                                          (txData?['type'] as String?) == 'Deposit' ? Icons.monetization_on : Icons.account_balance_wallet,
+                                          color: isBestMatch ? Colors.amber.shade700 : Colors.green,
+                                          size: 32,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${user['name']} (${user['gender'] == 'Male' ? loc.male : loc.female})', 
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: isBestMatch ? Colors.amber.shade900 : null,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              '${loc.amount}: ${txData['amount']}  •  ${loc.distance}: ~${dist.toStringAsFixed(2)} km', 
+                                              style: TextStyle(
+                                                color: isBestMatch ? Colors.amber.shade700 : Colors.grey[700],
+                                                fontWeight: isBestMatch ? FontWeight.w600 : null,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? null : () => _sendExchangeRequest(tx, user.id),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: isBestMatch ? Colors.amber.shade600 : null,
+                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                            ),
+                                            child: Text(
+                                              _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)" : loc.exchangeRequestFrom,
+                                              style: TextStyle(
+                                                fontWeight: isBestMatch ? FontWeight.bold : null,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          OutlinedButton(
+                                            onPressed: _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? null : () {
+                                              if (_myTx != null) {
+                                                FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id).update({'status': 'cancelled'});
+                                                setState(() {
+                                                  _lockActive = false;
+                                                  _lockUntil = null;
+                                                });
+                                              }
+                                            },
+                                            style: OutlinedButton.styleFrom(
+                                              side: BorderSide(
+                                                color: isBestMatch ? Colors.amber.shade600 : Colors.grey,
+                                              ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                            ),
+                                            child: Text(
+                                              loc.cancel,
+                                              style: TextStyle(
+                                                color: isBestMatch ? Colors.amber.shade700 : null,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -748,7 +1067,6 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  // Update _savePendingRequestIfNeeded to use these fields:
   Future<void> _savePendingRequestIfNeeded() async {
     final user = FirebaseAuth.instance.currentUser!;
     final txSnap = await FirebaseFirestore.instance

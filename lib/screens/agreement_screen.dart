@@ -677,13 +677,53 @@ class _AgreementScreenState extends State<AgreementScreen> {
             else
               Text(loc.locationNotShared),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _sharingLocation ? null : () => _shareMyLocation(myTxId),
-              icon: const Icon(Icons.location_on, color: Colors.blueGrey),
-              label: _sharingLocation
-                  ? Text(loc.sharing)
-                  : Text(loc.sendMyLocation),
-            )
+            // Check if my location has been shared
+            StreamBuilder<DocumentSnapshot>(
+              stream: myTxId != null 
+                  ? FirebaseFirestore.instance.collection('transactions').doc(myTxId).snapshots()
+                  : null,
+              builder: (context, snapshot) {
+                final myTxData = snapshot.data?.data() as Map<String, dynamic>?;
+                final hasSharedLocation = myTxData?['sharedLocation'] != null;
+                
+                if (hasSharedLocation) {
+                  return ElevatedButton.icon(
+                    onPressed: null, // Disabled
+                    icon: const Icon(Icons.check_circle, color: Colors.white),
+                    label: Text(loc.locationShared),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      disabledBackgroundColor: Colors.green,
+                      disabledForegroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  );
+                } else {
+                  return OutlinedButton.icon(
+                    onPressed: _sharingLocation ? null : () => _shareMyLocation(myTxId),
+                    icon: _sharingLocation 
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.location_on, color: Colors.blueGrey),
+                    label: _sharingLocation
+                        ? Text(loc.sharing)
+                        : Text(loc.sendMyLocation),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
           ],
         ),
       ),
