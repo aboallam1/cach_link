@@ -55,8 +55,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build iOS for simulator
-        run: flutter build ios --release --simulator
+      - name: Build iOS for simulator (debug mode)
+        run: flutter build ios --debug --simulator
 
       - name: List iOS build outputs
         run: |
@@ -66,22 +66,16 @@ jobs:
       - name: Upload iOS Simulator .app
         uses: actions/upload-artifact@v4
         with:
-          name: ios-simulator-app
+          name: ios-simulator-app-debug
           path: build/ios/iphonesimulator/Runner.app
 
-      - name: Build iOS for device (if certificates available)
-        run: |
-          echo "Attempting device build..."
-          flutter build ios --release --no-codesign || echo "Device build failed - this is expected in CI without certificates"
-        continue-on-error: true
-
-      - name: Create iOS .ipa (simulator)
+      - name: Create iOS .ipa (simulator debug)
         run: |
           if [ -d "build/ios/iphonesimulator/Runner.app" ]; then
             mkdir Payload
             cp -r build/ios/iphonesimulator/Runner.app Payload/
-            zip -r ios-simulator.ipa Payload
-            echo "Created simulator IPA"
+            zip -r ios-simulator-debug.ipa Payload
+            echo "Created simulator debug IPA"
           else
             echo "No simulator app found"
           fi
@@ -90,6 +84,12 @@ jobs:
       - name: Upload iOS Simulator .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: ios-simulator-ipa
-          path: ios-simulator.ipa
-        if: hashFiles('ios-simulator.ipa') != ''
+          name: ios-simulator-ipa-debug
+          path: ios-simulator-debug.ipa
+        if: hashFiles('ios-simulator-debug.ipa') != ''
+
+      - name: Attempt iOS device build (profile mode, no codesign)
+        run: |
+          echo "Attempting device build in profile mode..."
+          flutter build ios --profile --no-codesign || echo "Device build failed - this is expected in CI without certificates"
+        continue-on-error: true
