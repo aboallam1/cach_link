@@ -353,18 +353,32 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _respondToRequest(DocumentSnapshot tx, bool accept) async {
-    final txRef = FirebaseFirestore.instance.collection('transactions').doc(tx.id);
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
     if (accept) {
-      await txRef.update({'status': 'accepted'});
+      // Update both transactions to accepted status
+      final batch = FirebaseFirestore.instance.batch();
+      final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
+      final otherRef = FirebaseFirestore.instance.collection('transactions').doc(tx.id);
+      
+      batch.update(myRef, {
+        'status': 'accepted',
+        'acceptedAt': FieldValue.serverTimestamp(),
+      });
+      batch.update(otherRef, {
+        'status': 'accepted', 
+        'acceptedAt': FieldValue.serverTimestamp(),
+      });
+      
+      await batch.commit();
+      
       if (!mounted) return;
       Navigator.of(context).pushNamed('/agreement', arguments: {
         'myTxId': _myTx!.id,
         'otherTxId': tx.id,
       });
     } else {
-      await txRef.update({'status': 'rejected'});
+      await FirebaseFirestore.instance.collection('transactions').doc(tx.id).update({'status': 'rejected'});
       // Unlock sender immediately
       if (!mounted) return;
       setState(() {

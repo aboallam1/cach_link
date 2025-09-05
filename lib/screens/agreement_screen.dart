@@ -463,42 +463,9 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                  otherStatus == 'accepted' || otherStatus == 'completed') && otherUser.isNotEmpty)
                               ...[
                                 _detailsCard(otherUser, otherSharedLocation, loc, myTxId),
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      icon: Icon(
-                                        myType == 'Deposit' ? Icons.send : Icons.attach_money,
-                                        color: Colors.white,
-                                      ),
-                                      label: Text(
-                                        myType == 'Deposit'
-                                            ? loc.confirmTransfer
-                                            : loc.confirmCashReceived,
-                                        
-                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green[700],
-                                        minimumSize: const Size.fromHeight(48),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      onPressed: _busy
-                                          ? null
-                                          : () => _confirmStep(
-                                                myTxId: myTxId,
-                                                otherTxId: otherTxId,
-                                                iAmDeposit: myType == 'Deposit',
-                                              ),
-                                    ),
-                                  ),
-                                ),
                               ],
 
-                            // Accept / Decline flow
+                            // Accept / Decline flow for requester
                             if (status == 'requested' && otherStatus != 'accepted' && myData['exchangeRequestedBy'] == currentUserId) ...[
                               _infoCard(
                                 icon: Icons.hourglass_top,
@@ -530,10 +497,10 @@ class _AgreementScreenState extends State<AgreementScreen> {
                               ),
                             ],
 
-                            // Confirmation buttons for requester
-                            if ((status == 'accepted' || status == 'completed') && myData['exchangeRequestedBy'] == currentUserId) ...[
+                            // Single confirmation button for both requester and receiver
+                            if ((status == 'accepted' || status == 'completed')) ...[
                               Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.only(bottom: 16, top: 16),
                                 child: SizedBox(
                                   width: double.infinity,
                                   child: ElevatedButton.icon(
@@ -560,47 +527,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
                                     onPressed: _busy || 
                                               (myData['instapayConfirmed'] == true && myType == 'Deposit') || 
                                               (myData['cashConfirmed'] == true && myType == 'Withdraw')
-                                        ? null
-                                        : () => _confirmStep(
-                                              myTxId: myTxId,
-                                              otherTxId: otherTxId,
-                                              iAmDeposit: myType == 'Deposit',
-                                            ),
-                                  ),
-                                ),
-                              ),
-                            ],
-
-                            // Confirmation buttons for receiver (not requester)
-                            if ((status == 'accepted' || status == 'completed') && myData['exchangeRequestedBy'] != currentUserId) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    icon: Icon(
-                                      myType == 'Withdraw' ? Icons.check_circle : Icons.attach_money,
-                                      color: Colors.white,
-                                    ),
-                                    label: Text(
-                                      myType == 'Withdraw'
-                                          ? loc.confirmCashReceived
-                                          : loc.confirmTransfer,
-                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: (myData['cashConfirmed'] == true && myType == 'Withdraw') || 
-                                                     (myData['instapayConfirmed'] == true && myType == 'Deposit')
-                                          ? Colors.grey
-                                          : Colors.green[700],
-                                      minimumSize: const Size.fromHeight(48),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: _busy || 
-                                              (myData['cashConfirmed'] == true && myType == 'Withdraw') || 
-                                              (myData['instapayConfirmed'] == true && myType == 'Deposit')
                                         ? null
                                         : () => _confirmStep(
                                               myTxId: myTxId,
