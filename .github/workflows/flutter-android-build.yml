@@ -24,17 +24,24 @@ jobs:
       - name: Build AAB
         run: flutter build appbundle --release
 
+      - name: List build outputs
+        run: |
+          echo "APK files:"
+          find build/app/outputs/flutter-apk/ -name "*.apk" || echo "No APK files found"
+          echo "AAB files:"
+          find build/app/outputs/bundle/ -name "*.aab" || echo "No AAB files found"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/CashLink-app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: android-aab
-          path: build/app/outputs/bundle/release/CashLink-app-release.aab
+          path: build/app/outputs/bundle/release/app-release.aab
 
   build-ios:
     runs-on: macos-latest
@@ -51,16 +58,21 @@ jobs:
       - name: Build iOS .app
         run: flutter build ios --release --no-codesign
 
+      - name: List iOS build outputs
+        run: |
+          echo "iOS build outputs:"
+          find build/ios/ -name "*.app" || echo "No .app files found"
+
       - name: Upload .app
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
-          path: build/ios/iphoneos/*.app
+          path: build/ios/iphoneos/Runner.app
 
       - name: Build .ipa
         run: |
           mkdir Payload
-          cp -r build/ios/iphoneos/*.app Payload/
+          cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r ios-app.ipa Payload
         shell: bash
 
