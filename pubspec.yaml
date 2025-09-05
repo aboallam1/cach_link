@@ -37,7 +37,6 @@ flutter:
 
 dependency_overrides:
   grpc: ^3.2.4
-    - assets/icons/
   
   # App icon configuration will be handled by platform-specific files
 
