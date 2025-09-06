@@ -129,6 +129,7 @@ class _SignupScreenState extends State<SignupScreen> {
       });
 
       if (!mounted) return;
+      final loc = AppLocalizations.of(context)!;
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -145,6 +146,7 @@ class _SignupScreenState extends State<SignupScreen> {
         _loading = false;
       });
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         await showDialog(
           context: context,
           builder: (_) => AlertDialog(
@@ -160,6 +162,7 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   void _showSmsCodeDialog() {
+    final loc = AppLocalizations.of(context)!;
     // reuse the same enhanced OTP dialog pattern used in auth_screen
     List<TextEditingController> otpControllers = List.generate(6, (_) => TextEditingController());
     List<FocusNode> otpFocus = List.generate(6, (_) => FocusNode());

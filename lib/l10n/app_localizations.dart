@@ -140,7 +140,7 @@ class AppLocalizations {
       'insufficientBalance': 'Insufficient Balance',
       'needMinimumBalance': 'You need at least {amount} EGP in your wallet to create a transaction.',
       'feeDeductedWhenCompleted': 'This amount will be deducted as a service fee when your transaction is completed.',
-      'goToWallet': 'Go to Wallet',
+      'goToWallet': 'Recharge Wallet',
       'exchangeAccepted': 'Exchange accepted! Fees have been deducted from both wallets.',
       'errorAcceptingExchange': 'Error accepting exchange: {error}',
       'invalidCode': 'Invalid code',

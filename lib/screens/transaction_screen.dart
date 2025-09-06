@@ -208,11 +208,20 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
   }
 
-  // Check wallet balance
+  // Check wallet balance with calculated fee
   Future<bool> _checkWalletBalance() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return false;
+
+      // Calculate the actual fee based on amount
+      final amountText = _amountController.text.trim();
+      if (amountText.isEmpty) return false;
+      
+      final amount = double.tryParse(amountText);
+      if (amount == null || amount <= 0) return false;
+      
+      final requiredFee = amount * TRANSACTION_FEE; // fee = amount * 0.003
 
       final walletDoc = await FirebaseFirestore.instance
           .collection('wallets')
@@ -222,7 +231,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
       final double balance = walletDoc.exists ? 
           (walletDoc.data()?['balance'] ?? 0.0).toDouble() : 0.0;
 
-      return balance >= TRANSACTION_FEE;
+      return balance >= requiredFee;
     } catch (e) {
       print('Error checking wallet balance: $e');
       return false;
@@ -230,34 +239,44 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 
   void _showInsufficientBalanceDialog() {
+    final loc = AppLocalizations.of(context)!;
+    final amountText = _amountController.text.trim();
+    final amount = double.tryParse(amountText) ?? 0.0;
+    final requiredFee = amount * TRANSACTION_FEE;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Insufficient Balance'),
+            const Icon(Icons.warning, color: Colors.orange),
+            const SizedBox(width: 8),
+            Text(loc.insufficientBalance),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'You need at least ${TRANSACTION_FEE.toStringAsFixed(3)} EGP in your wallet to create a transaction.',
+              'You need at least ${requiredFee.toStringAsFixed(3)} EGP in your wallet for this ${amount.toStringAsFixed(2)} EGP transaction.',
               style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'This amount will be deducted as a service fee when your transaction is completed.',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            Text(
+              'Transaction fee: 0.3% of ${amount.toStringAsFixed(2)} EGP = ${requiredFee.toStringAsFixed(3)} EGP',
+              style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              loc.feeDeductedWhenCompleted,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(loc.cancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -265,7 +284,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
               Navigator.of(context).pushNamed('/wallet');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Recharge Wallet'),
+            child: Text(loc.goToWallet),
           ),
         ],
       ),
@@ -282,7 +301,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
     if (hasActiveRequest) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("You already have an active request. Cancel it first.")),
+        const SnackBar(content: Text("You already have an active request. Cancel it first.")),
       );
       return;
     }
@@ -299,7 +318,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
     final user = FirebaseAuth.instance.currentUser!;
     final amount = double.parse(_amountController.text);
-    final fee = amount * TRANSACTION_FEE; // Calculate fee as 0.003 * amount
+    final fee = amount * TRANSACTION_FEE; // Calculate fee as amount * 0.003
 
     // Record transaction in Firestore with calculated fee
     await FirebaseFirestore.instance.collection('transactions').add({
