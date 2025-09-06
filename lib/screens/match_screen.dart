@@ -481,12 +481,9 @@ class _MatchScreenState extends State<MatchScreen> {
 
     await batch.commit();
 
-    // Keep only the targeted card locally so other cards won't show accept/reject
+    // remember requested id for local requester UI (optional)
     if (mounted) {
-      setState(() {
-        _requestedTxId = otherTx.id;
-        _matches = _matches.where((m) => m.id == otherTx.id).toList();
-      });
+      setState(() { _requestedTxId = otherTx.id; });
     }
 
     // Remove myTx id from shownTo arrays of other candidates so they no longer show me (A -> C removes A from B)
@@ -812,9 +809,10 @@ class _MatchScreenState extends State<MatchScreen> {
                           );
                         }
 
-                        // Show accept/reject only for the requested transaction that matches our requestedTxId (targeted)
+                        // Receiver: show accept/reject when this transaction was targeted (partnerTxId == myTx.id)
                         if (txData['status'] == 'requested' &&
-                            tx.id == _requestedTxId &&
+                            txData['partnerTxId'] != null &&
+                            txData['partnerTxId'] == _myTx?.id &&
                             txData['exchangeRequestedBy'] != currentUserId) {
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
@@ -929,9 +927,10 @@ class _MatchScreenState extends State<MatchScreen> {
                           );
                         }
 
-                        // Requester view: show disabled request state only for the transaction that was targeted
+                        // Requester: show disabled request state for the transaction where partnerTxId == myTx.id
                         if (txData['status'] == 'requested' &&
-                            tx.id == _requestedTxId &&
+                            txData['partnerTxId'] != null &&
+                            txData['partnerTxId'] == _myTx?.id &&
                             txData['exchangeRequestedBy'] == currentUserId) {
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
