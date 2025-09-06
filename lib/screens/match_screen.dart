@@ -36,6 +36,8 @@ class _MatchScreenState extends State<MatchScreen> {
   String? lastAmount;
   Map<String, dynamic>? lastLocation;
 
+  String? _requestedTxId; // id of the transaction we've requested (target)
+
   @override
   void initState() {
     super.initState();
@@ -213,6 +215,11 @@ class _MatchScreenState extends State<MatchScreen> {
       final expiresAt = DateTime.tryParse(data['expiresAt']);
       if (expiresAt == null || expiresAt.isBefore(now)) continue;
 
+      // IMPORTANT: hide transactions already requested by other users (not targeted to me)
+      if (data['status'] == 'requested' && data['partnerTxId'] != _myTx!.id) {
+        continue;
+      }
+
       final loc = data['location'];
       double d = 0.0;
       if (_myLoc != null && loc != null && loc['lat'] != null && loc['lng'] != null) {
@@ -233,6 +240,57 @@ class _MatchScreenState extends State<MatchScreen> {
       _loading = false;
       _noCandidates = matches.isEmpty;
     });
+
+   // Reserve shown slots for selected matches so each candidate is exposed to at most 2 requesters.
+   // Candidates who already reached two distinct viewers will be removed locally.
+   if (_matches.isNotEmpty && _myTx != null) {
+     await _reserveShownSlots(_matches);
+   }
+  }
+
+  // Reserve per-candidate shownTo slot (limit = 2). Removes matches that cannot be reserved.
+  Future<void> _reserveShownSlots(List<DocumentSnapshot> matches) async {
+    if (_myTx == null) return;
+    final String myTxId = _myTx!.id;
+    List<String> removeIds = [];
+
+    for (var candidate in matches) {
+      final docRef = candidate.reference;
+      try {
+        await FirebaseFirestore.instance.runTransaction((txn) async {
+          final snap = await txn.get(docRef);
+          if (!snap.exists) {
+            removeIds.add(candidate.id);
+            return;
+          }
+          final data = snap.data() as Map<String, dynamic>? ?? {};
+          final shown = (data['shownTo'] as List<dynamic>?)?.cast<String>() ?? [];
+          if (shown.contains(myTxId)) {
+            // already reserved by me
+            return;
+          }
+          if (shown.length >= 2) {
+            // already full for other requesters -> remove locally
+            removeIds.add(candidate.id);
+            return;
+          }
+          // add myTxId to shownTo
+          txn.update(docRef, {
+            'shownTo': FieldValue.arrayUnion([myTxId])
+          });
+        });
+      } catch (_) {
+        // On any failure, remove candidate locally to avoid showing it
+        removeIds.add(candidate.id);
+      }
+    }
+
+    if (removeIds.isNotEmpty && mounted) {
+      setState(() {
+        _matches = _matches.where((m) => !removeIds.contains(m.id)).toList();
+        _bestChoices = _bestChoices.where((m) => !removeIds.contains(m.id)).toList();
+      });
+    }
   }
 
   // Smart algorithm to find 1-2 best matches
@@ -385,28 +443,31 @@ class _MatchScreenState extends State<MatchScreen> {
     final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
     final otherRef = FirebaseFirestore.instance.collection('transactions').doc(otherTx.id);
 
+    // create notification doc first so we can use its id as requestTag
+    final notificationRef = FirebaseFirestore.instance.collection('notifications').doc();
+    final requestTag = notificationRef.id;
+
     final batch = FirebaseFirestore.instance.batch();
-    
-    // Update only MY transaction to show I sent a request
+    // Update only MY transaction to show I sent a request and store requestTag
     batch.update(myRef, {
       'status': 'requested',
       'partnerTxId': otherTx.id,
       'exchangeRequestedBy': currentUserId,
       'lockUntil': Timestamp.fromDate(_lockUntil!),
+      'requestTag': requestTag,
     });
-    
-    // Update only the SPECIFIC OTHER transaction to show they have a request
+    // Update only the SPECIFIC OTHER transaction to show they have a request and store requestTag
     batch.update(otherRef, {
       'status': 'requested',
       'partnerTxId': _myTx!.id,
       'exchangeRequestedBy': currentUserId,
       'lockUntil': Timestamp.fromDate(_lockUntil!),
+      'requestTag': requestTag,
     });
-
-    // Create notification only for the specific user
-    final notificationRef = FirebaseFirestore.instance.collection('notifications').doc();
+    // Create notification only for the specific user and include requestTag
     batch.set(notificationRef, {
       'id': notificationRef.id,
+      'requestTag': requestTag,
       'toUserId': otherUserId,
       'fromUserId': currentUserId,
       'myTxId': otherTx.id,
@@ -419,6 +480,27 @@ class _MatchScreenState extends State<MatchScreen> {
     });
 
     await batch.commit();
+
+    // Keep only the targeted card locally so other cards won't show accept/reject
+    if (mounted) {
+      setState(() {
+        _requestedTxId = otherTx.id;
+        _matches = _matches.where((m) => m.id == otherTx.id).toList();
+      });
+    }
+
+    // Remove myTx id from shownTo arrays of other candidates so they no longer show me (A -> C removes A from B)
+    try {
+      for (var m in List<DocumentSnapshot>.from(_matches)) {
+        if (m.id == otherTx.id) continue;
+        await FirebaseFirestore.instance
+            .collection('transactions')
+            .doc(m.id)
+            .update({'shownTo': FieldValue.arrayRemove([_myTx!.id])});
+      }
+    } catch (_) {
+      // ignore errors - not critical
+    }
 
     VoiceService().speakRequestSent();
 
@@ -441,10 +523,12 @@ class _MatchScreenState extends State<MatchScreen> {
       batch.update(myRef, {
         'status': 'accepted',
         'acceptedAt': FieldValue.serverTimestamp(),
+        'requestTag': FieldValue.delete(),
       });
       batch.update(otherRef, {
         'status': 'accepted', 
         'acceptedAt': FieldValue.serverTimestamp(),
+        'requestTag': FieldValue.delete(),
       });
       
       await batch.commit();
@@ -458,12 +542,14 @@ class _MatchScreenState extends State<MatchScreen> {
       }
       
       if (!mounted) return;
+      // Clear local requested id (we're moving to agreement)
+      setState(() { _requestedTxId = null; });
       Navigator.of(context).pushNamed('/agreement', arguments: {
         'myTxId': _myTx!.id,
         'otherTxId': tx.id,
       });
     } else {
-      // Reject the request - reset both specific transactions to pending
+      // Reject the request - reset both specific transactions to pending and clear requestTag
       final batch = FirebaseFirestore.instance.batch();
       final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
       final otherRef = FirebaseFirestore.instance.collection('transactions').doc(tx.id);
@@ -473,24 +559,27 @@ class _MatchScreenState extends State<MatchScreen> {
         'partnerTxId': FieldValue.delete(),
         'exchangeRequestedBy': FieldValue.delete(),
         'lockUntil': FieldValue.delete(),
+        'requestTag': FieldValue.delete(),
       });
       batch.update(otherRef, {
         'status': 'pending',
         'partnerTxId': FieldValue.delete(),
         'exchangeRequestedBy': FieldValue.delete(),
         'lockUntil': FieldValue.delete(),
+        'requestTag': FieldValue.delete(),
       });
       
       await batch.commit();
 
-      if (!mounted) return;
-      setState(() {
-        _lockActive = false;
-        _lockUntil = null;
-      });
-      
-      // Refresh matches after rejection
-      await _findMatches();
+      // Clear local requested id and refresh matches
+      if (mounted) {
+        setState(() {
+          _requestedTxId = null;
+          _lockActive = false;
+          _lockUntil = null;
+        });
+        await _findMatches();
+      }
     }
   }
 
@@ -534,6 +623,8 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final myRequestTag = (_myTx?.data() as Map<String, dynamic>?)?['requestTag'] as String?;
     String timerText =
         "${_remaining.inMinutes.remainder(60).toString().padLeft(2, '0')}:${(_remaining.inSeconds.remainder(60)).toString().padLeft(2, '0')}";
 
@@ -721,7 +812,10 @@ class _MatchScreenState extends State<MatchScreen> {
                           );
                         }
 
-                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] != FirebaseAuth.instance.currentUser!.uid) {
+                        // Show accept/reject only for the requested transaction that matches our requestedTxId (targeted)
+                        if (txData['status'] == 'requested' &&
+                            tx.id == _requestedTxId &&
+                            txData['exchangeRequestedBy'] != currentUserId) {
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                             decoration: BoxDecoration(
@@ -835,7 +929,10 @@ class _MatchScreenState extends State<MatchScreen> {
                           );
                         }
 
-                        if (txData['status'] == 'requested' && txData['exchangeRequestedBy'] == FirebaseAuth.instance.currentUser!.uid) {
+                        // Requester view: show disabled request state only for the transaction that was targeted
+                        if (txData['status'] == 'requested' &&
+                            tx.id == _requestedTxId &&
+                            txData['exchangeRequestedBy'] == currentUserId) {
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                             decoration: BoxDecoration(
