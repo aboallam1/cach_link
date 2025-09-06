@@ -7,8 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:cashlink/services/voice_service.dart';
-import '../services/wallet_service.dart';
-import '../services/transaction_service.dart';
 
 class AgreementScreen extends StatefulWidget {
   const AgreementScreen({super.key});
@@ -28,7 +26,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
   bool _navigatedToRating = false; // prevent duplicate navigation
   StreamSubscription<DocumentSnapshot>? _txSub;
   bool _redirectedOnReject = false; // avoid duplicate reject redirects
-  bool _loading = false;
 
   @override
   void initState() {
@@ -248,77 +245,6 @@ class _AgreementScreenState extends State<AgreementScreen> {
   void dispose() {
     _txSub?.cancel();
     super.dispose();
-  }
-
-  Future<void> _markAsCompleted() async {
-    final user = FirebaseAuth.instance.currentUser!;
-
-    setState(() => _loading = true);
-
-    try {
-      // Get transaction data to calculate fee
-      final myTxDoc = await FirebaseFirestore.instance
-          .collection('transactions')
-          .doc(widget.myTxId)
-          .get();
-      
-      final partnerTxDoc = await FirebaseFirestore.instance
-          .collection('transactions')
-          .doc(widget.otherTxId)
-          .get();
-
-      if (!myTxDoc.exists || !partnerTxDoc.exists) {
-        throw Exception('Transaction not found');
-      }
-
-      final myTxData = myTxDoc.data()!;
-      final partnerTxData = partnerTxDoc.data()!;
-
-      // Check if fees haven't been deducted yet
-      if (myTxData['feeDeducted'] != true || partnerTxData['feeDeducted'] != true) {
-        // Process transaction acceptance and fee deduction
-        await TransactionService.processTransactionAcceptance(widget.myTxId, widget.otherTxId);
-      } else {
-        // Just mark as completed if fees already deducted
-        await FirebaseFirestore.instance.runTransaction((transaction) async {
-          final myTxRef = FirebaseFirestore.instance.collection('transactions').doc(widget.myTxId);
-          final otherTxRef = FirebaseFirestore.instance.collection('transactions').doc(widget.otherTxId);
-
-          transaction.update(myTxRef, {
-            'status': 'completed',
-            'completedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-
-          transaction.update(otherTxRef, {
-            'status': 'completed',
-            'completedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        });
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Transaction completed successfully! Fees have been processed.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.of(context).pushReplacementNamed('/history');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error completing transaction: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
   }
 
   Widget build(BuildContext context) {

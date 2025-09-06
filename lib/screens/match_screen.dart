@@ -1224,7 +1224,8 @@ class _MatchScreenState extends State<MatchScreen> {
                                 ],
                               ),
                             ),
-                          );
+                          ),
+                        );
                       },
                     );
                   },
