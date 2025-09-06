@@ -78,7 +78,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Each completed transaction charges 0.3% of the transaction amount from your wallet. This fee is automatically deducted when both parties accept the exchange.',
+                  loc.eachCompletedTransactionCharges,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.black,
@@ -255,15 +255,16 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   String _formatTransactionDate(DateTime date) {
+    final loc = AppLocalizations.of(context)!;
     final now = DateTime.now();
     final difference = now.difference(date);
     
     if (difference.inDays == 0) {
-      return 'Today ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return '${loc.today} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } else if (difference.inDays == 1) {
-      return 'Yesterday';
+      return loc.yesterday;
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
+      return loc.daysAgo.replaceAll('{days}', difference.inDays.toString());
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }

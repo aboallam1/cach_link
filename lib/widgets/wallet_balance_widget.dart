@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/wallet_service.dart';
+import 'package:cashlink/l10n/app_localizations.dart';
 
 class WalletBalanceWidget extends StatelessWidget {
   final bool showRechargeButton;
@@ -12,6 +13,7 @@ class WalletBalanceWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final walletService = WalletService();
+    final loc = AppLocalizations.of(context)!;
 
     return StreamBuilder<double>(
       stream: walletService.getWalletBalanceStream(),
@@ -42,7 +44,7 @@ class WalletBalanceWidget extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Wallet Balance',
+                    loc.walletBalance,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -67,7 +69,7 @@ class WalletBalanceWidget extends StatelessWidget {
               if (hasLowBalance) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Low balance! Minimum ${WalletService.TRANSACTION_FEE} EGP needed for transactions.',
+                  loc.lowBalance.replaceAll('{fee}', WalletService.TRANSACTION_FEE.toString()),
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.red.shade600,
@@ -75,7 +77,7 @@ class WalletBalanceWidget extends StatelessWidget {
                   ),
                 ),
               ],
-              if (showRechargeButton && hasLowBalance) ...[
+              if (showRechargeButton) ...[
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -86,7 +88,7 @@ class WalletBalanceWidget extends StatelessWidget {
                       foregroundColor: Colors.white,
                     ),
                     icon: const Icon(Icons.add, size: 20),
-                    label: const Text('Recharge Wallet'),
+                    label: Text(loc.rechargeWallet),
                   ),
                 ),
               ],
@@ -120,8 +122,10 @@ class _RechargeWalletDialogState extends State<RechargeWalletDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    
     return AlertDialog(
-      title: const Text('Recharge Wallet'),
+      title: Text(loc.rechargeWallet),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -129,14 +133,14 @@ class _RechargeWalletDialogState extends State<RechargeWalletDialog> {
             controller: _amountController,
             keyboardType: TextInputType.number,
             style: const TextStyle(fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(
-              labelText: 'Amount (EGP)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.monetization_on),
+            decoration: InputDecoration(
+              labelText: loc.amountEgp,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.monetization_on),
             ),
           ),
           const SizedBox(height: 16),
-          const Text('Quick amounts:', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(loc.quickAmounts, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -152,26 +156,27 @@ class _RechargeWalletDialogState extends State<RechargeWalletDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(loc.cancel),
         ),
         ElevatedButton(
           onPressed: _loading ? null : _rechargeWallet,
           child: _loading 
             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Text('Recharge'),
+            : Text(loc.rechargeWallet),
         ),
       ],
     );
   }
 
   void _rechargeWallet() async {
+    final loc = AppLocalizations.of(context)!;
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) return;
 
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
+        SnackBar(content: Text(loc.pleaseEnterValidAmount)),
       );
       return;
     }
@@ -190,19 +195,19 @@ class _RechargeWalletDialogState extends State<RechargeWalletDialog> {
       );
       
       if (!success) {
-        throw Exception('Payment processing failed');
+        throw Exception(loc.paymentProcessingFailed);
       }
       
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully recharged ${amount.toStringAsFixed(2)} EGP')),
+          SnackBar(content: Text(loc.successfullyRecharged.replaceAll('{amount}', amount.toStringAsFixed(2)))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Recharge failed: $e')),
+          SnackBar(content: Text(loc.rechargeFailed.replaceAll('{error}', e.toString()))),
         );
       }
     } finally {

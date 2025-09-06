@@ -103,7 +103,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
     List<DocumentSnapshot> found = await _findCandidates();
 
-    // Find closest by GPS
+    // Find closest to GPS location
     DocumentSnapshot? closestByGps;
     double minDist = double.infinity;
     for (var doc in found) {
@@ -258,12 +258,16 @@ class _TransactionScreenState extends State<TransactionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'You need at least ${requiredFee.toStringAsFixed(3)} EGP in your wallet for this ${amount.toStringAsFixed(2)} EGP transaction.',
+              loc.youNeedAtLeast
+                  .replaceAll('{fee}', requiredFee.toStringAsFixed(3))
+                  .replaceAll('{amount}', amount.toStringAsFixed(2)),
               style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 16),
             Text(
-              'Transaction fee: 0.3% of ${amount.toStringAsFixed(2)} EGP = ${requiredFee.toStringAsFixed(3)} EGP',
+              loc.transactionFeeCalculation
+                  .replaceAll('{amount}', amount.toStringAsFixed(2))
+                  .replaceAll('{fee}', requiredFee.toStringAsFixed(3)),
               style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),

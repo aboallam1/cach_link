@@ -783,7 +783,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 items: [
                   DropdownMenuItem(
                     value: "best",
-                    child: Text("🎯 Smart Match"),
+                    child: Text("🎯 ${loc.smartMatch}"),
                   ),
                   DropdownMenuItem(
                     value: "distance",
@@ -816,7 +816,7 @@ class _MatchScreenState extends State<MatchScreen> {
                     Icon(Icons.star, color: Colors.amber.shade700),
                     const SizedBox(width: 8),
                     Text(
-                      _matches.length == 1 ? "Perfect Match Found!" : "Top 2 Best Matches",
+                      _matches.length == 1 ? loc.perfectMatchFound : loc.top2BestMatches,
                       style: TextStyle(
                         color: Colors.amber.shade800,
                         fontWeight: FontWeight.bold,
@@ -896,7 +896,7 @@ class _MatchScreenState extends State<MatchScreen> {
                                 Icon(Icons.star, size: 16, color: Colors.amber.shade800),
                                 const SizedBox(width: 4),
                                 Text(
-                                  "BEST MATCH",
+                                  loc.bestMatch,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -1187,7 +1187,7 @@ class _MatchScreenState extends State<MatchScreen> {
                                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                             ),
                                             child: Text(
-                                              _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? "Locked (${_lockUntil!.difference(DateTime.now()).inSeconds}s)" : loc.exchangeRequestFrom,
+                                              _lockActive && _lockUntil != null && DateTime.now().isBefore(_lockUntil!) ? "${loc.locked} (${_lockUntil!.difference(DateTime.now()).inSeconds}s)" : loc.exchangeRequestFrom,
                                               style: TextStyle(
                                                 fontWeight: isBestMatch ? FontWeight.bold : null,
                                               ),
@@ -1251,7 +1251,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _cancelRequestAndExit,
-                    child: const Text("Cancel"),
+                    child: Text(loc.cancel),
                   ),
                 ),
               ],

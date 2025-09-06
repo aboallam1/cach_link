@@ -248,7 +248,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             } catch (_) {}
                           }
                         : null,
-                    child: Text(resendEnabled ? 'Resend Code' : 'Resend (wait)'),
+                    child: Text(resendEnabled ? loc.resendCode : loc.resendWait),
                   ),
                 ],
               ),

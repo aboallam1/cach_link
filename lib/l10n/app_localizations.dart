@@ -148,7 +148,29 @@ class AppLocalizations {
       'signupSuccessful': 'Signup successful',
       'accountCreatedWithBonus': 'Your account has been created with 10 EGP welcome bonus!\n\nNote: Transaction fees are 0.3% of the transaction amount.',
       'signupError': 'Signup error',
-      'ok': 'OK',
+      'smartMatch': 'Smart Match',
+      'perfectMatchFound': 'Perfect Match Found!',
+      'top2BestMatches': 'Top 2 Best Matches',
+      'bestMatch': 'BEST MATCH',
+      'locked': 'Locked',
+      'resendCode': 'Resend Code',
+      'resendWait': 'Resend (wait)',
+      'expiresIn': 'Expires in',
+      'walletBalance': 'Wallet Balance',
+      'lowBalance': 'Low balance! Minimum {fee} EGP needed for transactions.',
+      'quickAmounts': 'Quick amounts:',
+      'today': 'Today',
+      'yesterday': 'Yesterday',
+      'daysAgo': '{days} days ago',
+      'pleaseEnterValidAmount': 'Please enter a valid amount',
+      'successfullyRecharged': 'Successfully recharged {amount} EGP',
+      'rechargeFailed': 'Recharge failed: {error}',
+      'paymentProcessingFailed': 'Payment processing failed',
+      'amountEgp': 'Amount (EGP)',
+      'eachCompletedTransactionCharges': 'Each completed transaction charges 0.3% of the transaction amount from your wallet. This fee is automatically deducted when both parties accept the exchange.',
+      'transactionFeeWillBeDeducted': 'Transaction fee: 0.3% of transaction amount will be deducted from your wallet when both parties accept.',
+      'youNeedAtLeast': 'You need at least {fee} EGP in your wallet for this {amount} EGP transaction.',
+      'transactionFeeCalculation': 'Transaction fee: 0.3% of {amount} EGP = {fee} EGP',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -281,7 +303,29 @@ class AppLocalizations {
       'signupSuccessful': 'تم التسجيل بنجاح',
       'accountCreatedWithBonus': 'تم إنشاء حسابك مع مكافأة ترحيب 10 جنيه!\n\nملاحظة: رسوم المعاملات هي 0.3% من مبلغ المعاملة.',
       'signupError': 'خطأ في التسجيل',
-      'ok': 'موافق',
+      'smartMatch': 'مطابقة ذكية',
+      'perfectMatchFound': 'تم العثور على مطابقة مثالية!',
+      'top2BestMatches': 'أفضل مطابقتين',
+      'bestMatch': 'أفضل مطابقة',
+      'locked': 'مقفل',
+      'resendCode': 'إعادة إرسال الرمز',
+      'resendWait': 'إعادة الإرسال (انتظر)',
+      'expiresIn': 'ينتهي خلال',
+      'walletBalance': 'رصيد المحفظة',
+      'lowBalance': 'رصيد منخفض! الحد الأدنى {fee} جنيه مطلوب للمعاملات.',
+      'quickAmounts': 'مبالغ سريعة:',
+      'today': 'اليوم',
+      'yesterday': 'أمس',
+      'daysAgo': 'منذ {days} أيام',
+      'pleaseEnterValidAmount': 'يرجى إدخال مبلغ صالح',
+      'successfullyRecharged': 'تم شحن {amount} جنيه بنجاح',
+      'rechargeFailed': 'فشل الشحن: {error}',
+      'paymentProcessingFailed': 'فشل في معالجة الدفع',
+      'amountEgp': 'المبلغ (جنيه)',
+      'eachCompletedTransactionCharges': 'كل معاملة مكتملة تتقاضى 0.3% من مبلغ المعاملة من محفظتك. يتم خصم هذه الرسوم تلقائياً عندما يقبل الطرفان التبادل.',
+      'transactionFeeWillBeDeducted': 'رسوم المعاملة: سيتم خصم 0.3% من مبلغ المعاملة من محفظتك عندما يقبل الطرفان.',
+      'youNeedAtLeast': 'تحتاج إلى ما لا يقل عن {fee} جنيه في محفظتك لهذه المعاملة بقيمة {amount} جنيه.',
+      'transactionFeeCalculation': 'رسوم المعاملة: 0.3% من {amount} جنيه = {fee} جنيه',
     },
   };
 
@@ -426,6 +470,28 @@ class AppLocalizations {
   String get accountCreatedWithBonus => _t('accountCreatedWithBonus');
   String get signupError => _t('signupError');
   String get ok => _t('ok');
+  String get smartMatch => _t('smartMatch');
+  String get perfectMatchFound => _t('perfectMatchFound');
+  String get top2BestMatches => _t('top2BestMatches');
+  String get bestMatch => _t('bestMatch');
+  String get locked => _t('locked');
+  String get resendCode => _t('resendCode');
+  String get resendWait => _t('resendWait');
+  String get walletBalance => _t('walletBalance');
+  String get lowBalance => _t('lowBalance');
+  String get quickAmounts => _t('quickAmounts');
+  String get today => _t('today');
+  String get yesterday => _t('yesterday');
+  String get daysAgo => _t('daysAgo');
+  String get pleaseEnterValidAmount => _t('pleaseEnterValidAmount');
+  String get successfullyRecharged => _t('successfullyRecharged');
+  String get rechargeFailed => _t('rechargeFailed');
+  String get paymentProcessingFailed => _t('paymentProcessingFailed');
+  String get amountEgp => _t('amountEgp');
+  String get eachCompletedTransactionCharges => _t('eachCompletedTransactionCharges');
+  String get transactionFeeWillBeDeducted => _t('transactionFeeWillBeDeducted');
+  String get youNeedAtLeast => _t('youNeedAtLeast');
+  String get transactionFeeCalculation => _t('transactionFeeCalculation');
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
