@@ -25,6 +25,7 @@ class _AgreementScreenState extends State<AgreementScreen> {
   bool _showCancel = true;
   bool _navigatedToRating = false; // prevent duplicate navigation
   StreamSubscription<DocumentSnapshot>? _txSub;
+  bool _redirectedOnReject = false; // avoid duplicate reject redirects
 
   @override
   void initState() {
@@ -59,10 +60,8 @@ class _AgreementScreenState extends State<AgreementScreen> {
     required Map<String, dynamic> data,
   }) async {
     final batch = FirebaseFirestore.instance.batch();
-    final myRef =
-        FirebaseFirestore.instance.collection('transactions').doc(myTxId);
-    final otherRef =
-        FirebaseFirestore.instance.collection('transactions').doc(otherTxId);
+    final myRef = FirebaseFirestore.instance.collection('transactions').doc(myTxId);
+    final otherRef = FirebaseFirestore.instance.collection('transactions').doc(otherTxId);
     batch.update(myRef, data);
     batch.update(otherRef, data);
     await batch.commit();
@@ -70,71 +69,85 @@ class _AgreementScreenState extends State<AgreementScreen> {
 
   Future<void> _acceptRequest(String myTxId, String otherTxId) async {
     setState(() => _busy = true);
-    await _setBothTxFields(
-      myTxId: myTxId,
-      otherTxId: otherTxId,
-      data: {
-        'status': 'accepted',
-        'acceptedAt': FieldValue.serverTimestamp(),
-      },
-    );
-    setState(() => _busy = false);
+    try {
+      await _setBothTxFields(
+        myTxId: myTxId,
+        otherTxId: otherTxId,
+        data: {
+          'status': 'accepted',
+          'acceptedAt': FieldValue.serverTimestamp(),
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to accept request')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _declineRequest(String myTxId, String otherTxId) async {
     setState(() => _busy = true);
-    await _setBothTxFields(
-      myTxId: myTxId,
-      otherTxId: otherTxId,
-      data: {
-        'status': 'pending',
-        'partnerTxId': FieldValue.delete(),
-        'exchangeRequestedBy': FieldValue.delete(),
-        'acceptedAt': FieldValue.delete(),
-      },
-    );
-    if (!mounted) return;
-    setState(() => _busy = false);
-    Navigator.pop(context);
+    try {
+      await _setBothTxFields(
+        myTxId: myTxId,
+        otherTxId: otherTxId,
+        data: {
+          'status': 'pending',
+          'partnerTxId': FieldValue.delete(),
+          'exchangeRequestedBy': FieldValue.delete(),
+          'acceptedAt': FieldValue.delete(),
+        },
+      );
+      // After decline, notify requester quickly by returning to match
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).pushReplacementNamed('/match');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to decline request')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _shareMyLocation(String? myTxId) async {
     if (myTxId == null || myTxId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.noTransactions)), // reuse an existing localized message
+        SnackBar(content: Text(AppLocalizations.of(context)!.noTransactions)),
       );
       return;
     }
 
     setState(() => _sharingLocation = true);
-    final loc = Location();
-    final permission = await loc.requestPermission();
-    if (permission == PermissionStatus.denied ||
-        permission == PermissionStatus.deniedForever) {
+    try {
+      final loc = Location();
+      final permission = await loc.requestPermission();
+      if (permission == PermissionStatus.denied || permission == PermissionStatus.deniedForever) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.locationPermissionDenied)),
+        );
+        return;
+      }
+      final data = await loc.getLocation();
+      await FirebaseFirestore.instance.collection('transactions').doc(myTxId).update({
+        'sharedLocation': {'lat': data.latitude, 'lng': data.longitude},
+        'sharedLocationAt': FieldValue.serverTimestamp(),
+      });
       if (!mounted) return;
-      setState(() => _sharingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.locationPermissionDenied)),
+        SnackBar(content: Text(AppLocalizations.of(context)!.locationSharedSuccessfully)),
       );
-      return;
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to share location')));
+    } finally {
+      if (mounted) setState(() => _sharingLocation = false);
     }
-    final data = await loc.getLocation();
-    await FirebaseFirestore.instance
-        .collection('transactions')
-        .doc(myTxId)
-        .update({
-      'sharedLocation': {
-        'lat': data.latitude,
-        'lng': data.longitude,
-      },
-      'sharedLocationAt': FieldValue.serverTimestamp(),
-    });
-    if (!mounted) return;
-    setState(() => _sharingLocation = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context)!.locationSharedSuccessfully)),
-    );
   }
 
   Future<void> _confirmStep({
@@ -143,78 +156,56 @@ class _AgreementScreenState extends State<AgreementScreen> {
     required bool iAmDeposit,
   }) async {
     setState(() => _busy = true);
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+      final myConfirmationFlag = iAmDeposit ? 'instapayConfirmed' : 'cashConfirmed';
 
-    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
-    
-    // Determine which confirmation flag to set based on user type
-    final myConfirmationFlag = iAmDeposit ? 'instapayConfirmed' : 'cashConfirmed';
+      await FirebaseFirestore.instance.collection('transactions').doc(myTxId).update({myConfirmationFlag: true});
+      await FirebaseFirestore.instance.collection('transactions').doc(otherTxId).update({myConfirmationFlag: true});
 
-    // Set this user's confirmation flag
-    await FirebaseFirestore.instance
-        .collection('transactions')
-        .doc(myTxId)
-        .update({myConfirmationFlag: true});
+      final mySnap = await FirebaseFirestore.instance.collection('transactions').doc(myTxId).get();
+      final otherSnap = await FirebaseFirestore.instance.collection('transactions').doc(otherTxId).get();
+      final myData = mySnap.data() as Map<String, dynamic>? ?? {};
+      final otherData = otherSnap.data() as Map<String, dynamic>? ?? {};
 
-    // Also set the flag on the partner transaction
-    await FirebaseFirestore.instance
-        .collection('transactions')
-        .doc(otherTxId)
-        .update({myConfirmationFlag: true});
+      final instapayConfirmed = (myData['instapayConfirmed'] == true) || (otherData['instapayConfirmed'] == true);
+      final cashConfirmed = (myData['cashConfirmed'] == true) || (otherData['cashConfirmed'] == true);
 
-    // Fetch both transactions to check if both sides are confirmed
-    final mySnap = await FirebaseFirestore.instance.collection('transactions').doc(myTxId).get();
-    final otherSnap = await FirebaseFirestore.instance.collection('transactions').doc(otherTxId).get();
-
-    final myData = mySnap.data() as Map<String, dynamic>? ?? {};
-    final otherData = otherSnap.data() as Map<String, dynamic>? ?? {};
-
-    // Check if both confirmations are complete
-    final instapayConfirmed = (myData['instapayConfirmed'] == true) || (otherData['instapayConfirmed'] == true);
-    final cashConfirmed = (myData['cashConfirmed'] == true) || (otherData['cashConfirmed'] == true);
-
-    if (instapayConfirmed && cashConfirmed) {
-      // Both sides confirmed -> mark completed for both transactions
-      await _setBothTxFields(
-        myTxId: myTxId,
-        otherTxId: otherTxId,
-        data: {
-          'status': 'completed',
-          'completedAt': FieldValue.serverTimestamp()
-        },
-      );
-
-      // Play voice notification for transaction completion
-      VoiceService().speakTransactionCompleted();
-
-      // Get the other user's ID for rating
-      final otherUserId = otherData['userId'] as String?;
-      
-      if (mounted && !_navigatedToRating) {
-        _navigatedToRating = true;
-        setState(() => _busy = false);
-        
-        if (otherUserId != null) {
-          Navigator.of(context).pushReplacementNamed('/rating', arguments: {
-            'otherUserId': otherUserId,
-          });
-        } else {
-          // Fallback: navigate to history if we can't get other user ID
-          Navigator.of(context).pushReplacementNamed('/history');
+      if (instapayConfirmed && cashConfirmed) {
+        await _setBothTxFields(
+          myTxId: myTxId,
+          otherTxId: otherTxId,
+          data: {
+            'status': 'completed',
+            'completedAt': FieldValue.serverTimestamp()
+          },
+        );
+        VoiceService().speakTransactionCompleted();
+        final otherUserId = otherData['userId'] as String?;
+        if (mounted && !_navigatedToRating) {
+          _navigatedToRating = true;
+          if (otherUserId != null) {
+            Navigator.of(context).pushReplacementNamed('/rating', arguments: {'otherUserId': otherUserId});
+          } else {
+            Navigator.of(context).pushReplacementNamed('/history');
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(iAmDeposit
+                  ? AppLocalizations.of(context)!.waitingForCashConfirmation
+                  : AppLocalizations.of(context)!.waitingForInstapayConfirmation),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
-    } else {
-      // One side confirmed, waiting for the other
-      setState(() => _busy = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(iAmDeposit
-                ? AppLocalizations.of(context)!.waitingForCashConfirmation
-                : AppLocalizations.of(context)!.waitingForInstapayConfirmation),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to confirm step')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -373,6 +364,23 @@ class _AgreementScreenState extends State<AgreementScreen> {
               final otherStatus = (otherTxData?['status'] as String?) ?? 'pending';
               final otherUserId = otherTxData?['userId'] as String?;
               final otherSharedLocation = otherTxData?['sharedLocation'] as Map<String, dynamic>?;
+
+              // If receiver rejected the request, redirect requester to match page quickly
+              try {
+                if (!mounted) {}
+                if (otherStatus == 'rejected' && myData['exchangeRequestedBy'] == currentUserId && !_redirectedOnReject) {
+                  _redirectedOnReject = true;
+                  _ticker.stop();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Request was rejected')));
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    Navigator.of(context).pushReplacementNamed('/match');
+                  });
+                }
+              } catch (_) {
+                // ignore listener errors, continue showing UI
+              }
 
               // Stop timer for both users when either transaction is accepted or completed
               if ((status == 'accepted' || status == 'completed' ||
