@@ -39,7 +39,7 @@ class MyApp extends StatefulWidget {
 }
 
 class MyAppState extends State<MyApp> {
-  Locale _locale = const Locale('en');
+  Locale? _locale; // nullable: use device locale by default
 
   void setLocale(Locale locale) {
     setState(() {
@@ -52,14 +52,24 @@ class MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'CashLink',
       debugShowCheckedModeBanner: false,
+      // If _locale is null, Flutter will pass the device locale into
+      // localeResolutionCallback for resolution. This makes the device
+      // language the default when supported.
       locale: _locale,
-      supportedLocales: AppLocalizations.supportedLocales,
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+      supportedLocales: const [
+        Locale('en'),
+        Locale('ar'),
       ],
+      // Resolve device locale -> use it if supported, otherwise fallback to English
+      localeResolutionCallback: (deviceLocale, supportedLocales) {
+        if (deviceLocale == null) return const Locale('en');
+        for (var locale in supportedLocales) {
+          if (locale.languageCode == deviceLocale.languageCode) {
+            return locale;
+          }
+        }
+        return const Locale('en');
+      },
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
         primaryColor: Colors.white,
