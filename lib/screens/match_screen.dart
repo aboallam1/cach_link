@@ -508,6 +508,41 @@ class _MatchScreenState extends State<MatchScreen> {
         'otherTxId': otherTx.id,
       });
     } on FirebaseException catch (e) {
+      // Attempt to detect if a concurrent workflow already paired/accepted these txs.
+      try {
+        final latestOtherSnap = await otherRef.get();
+        final latestMySnap = await myRef.get();
+        final latestOther = latestOtherSnap.data() as Map<String, dynamic>?;
+        final latestMy = latestMySnap.data() as Map<String, dynamic>?;
+
+        final otherStatus = latestOther?['status'] as String? ?? 'pending';
+        final myStatus = latestMy?['status'] as String? ?? 'pending';
+        final otherPartner = latestOther?['partnerTxId'] as String?;
+        final myPartner = latestMy?['partnerTxId'] as String?;
+
+        // If the two transactions are already paired and accepted (or requested->accepted),
+        // treat as success and open agreement.
+        final paired = (otherPartner != null && myPartner != null && otherPartner == _myTx!.id && myPartner == otherTx.id);
+        final acceptedNow = (otherStatus == 'accepted' || myStatus == 'accepted' || otherStatus == 'requested' && myStatus == 'accepted');
+
+        if (paired && (otherStatus == 'accepted' || myStatus == 'accepted' || acceptedNow)) {
+          // navigate to agreement page with the known ids
+          if (mounted) {
+            setState(() {
+              _requestedTxId = otherTx.id;
+            });
+            VoiceService().speakRequestSent();
+            Navigator.of(context).pushNamed('/agreement', arguments: {
+              'myTxId': _myTx!.id,
+              'otherTxId': otherTx.id,
+            });
+            return;
+          }
+        }
+      } catch (_) {
+        // ignore read errors, will fallback to showing the original error below
+      }
+
       // Known conflict or validation error from transaction
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
