@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
+import 'package:intl/intl.dart';
 
 class AppLocalizations {
   final Locale locale;
@@ -115,6 +116,7 @@ class AppLocalizations {
       'transactionTimeline': 'Transaction Timeline',
       'created': 'Created',
       'ratePartner': 'Rate Partner',
+      'searchForMatches': 'Search for matches',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -215,6 +217,7 @@ class AppLocalizations {
       'transactionTimeline': 'جدول زمني المعاملة',
       'created': 'تم الإنشاء',
       'ratePartner': 'قيم الشريك',
+      'searchForMatches': 'ابحث عن المطابقات',
     },
   };
 
@@ -326,6 +329,7 @@ class AppLocalizations {
   String get transactionTimeline => _t('transactionTimeline');
   String get created => _t('created');
   String get ratePartner => _t('ratePartner');
+  String get searchForMatches => _t('searchForMatches');
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

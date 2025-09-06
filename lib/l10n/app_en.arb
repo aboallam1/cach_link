@@ -41,5 +41,6 @@
   "completed": "Completed",
   "ratePartner": "Rate Partner",
   "transactionType": "Transaction Type",
-  "status": "Status"
+  "status": "Status",
+  "searchForMatches": "Search for matches"
 }

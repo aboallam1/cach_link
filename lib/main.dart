@@ -17,8 +17,12 @@ import 'screens/signup_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/wallet_screen.dart';
 import 'services/notification_service.dart';
 import 'services/voice_service.dart';
+import 'services/wallet_service.dart';
+import 'widgets/wallet_balance_widget.dart';
+import 'services/transaction_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -139,6 +143,7 @@ class MyAppState extends State<MyApp> {
         '/settings': (_) => const SettingsScreen(),
         '/history': (_) => const HistoryScreen(),
         '/notifications': (_) => const NotificationsScreen(),
+        '/wallet': (_) => const WalletScreen(),
       },
     );
   }

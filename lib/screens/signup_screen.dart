@@ -90,6 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
 
+      // Create user document
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -102,12 +103,37 @@ class _SignupScreenState extends State<SignupScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // Create wallet with 10 EGP default balance
+      await FirebaseFirestore.instance
+          .collection('wallets')
+          .doc(userCredential.user!.uid)
+          .set({
+        'balance': 10.0,
+        'currency': 'EGP',
+        'totalDeposited': 10.0,
+        'totalSpent': 0.0,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      // Create initial wallet transaction record
+      await FirebaseFirestore.instance
+          .collection('wallet_transactions')
+          .add({
+        'userId': userCredential.user!.uid,
+        'type': 'deposit',
+        'amount': 10.0,
+        'description': 'Welcome bonus - Initial wallet balance',
+        'balanceBefore': 0.0,
+        'balanceAfter': 10.0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
       if (!mounted) return;
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Signup successful'),
-          content: const Text('Your account has been created.'),
+          content: const Text('Your account has been created with 10 EGP welcome bonus!\n\nNote: Transaction fees are 0.3% of the transaction amount.'),
           actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
         ),
       );

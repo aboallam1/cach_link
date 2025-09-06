@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:cashlink/l10n/app_localizations.dart';
 import 'package:cashlink/services/voice_service.dart';
 import 'dart:async';
+import '../services/transaction_service.dart';
 
 class MatchScreen extends StatefulWidget {
   const MatchScreen({super.key});
@@ -567,6 +568,42 @@ class _MatchScreenState extends State<MatchScreen> {
           _lockUntil = null;
         });
       }
+    }
+  }
+
+  Future<void> _acceptExchange(String notificationId, String myTxId, String otherTxId) async {
+    setState(() => _loading = true);
+
+    try {
+      // Process the transaction acceptance and fee deduction
+      await TransactionService.processTransactionAcceptance(myTxId, otherTxId);
+
+      // Delete the notification after successful acceptance
+      await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(notificationId)
+          .delete();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Exchange accepted! Fees have been deducted from both wallets.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pushReplacementNamed('/history');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accepting exchange: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -1187,8 +1224,7 @@ class _MatchScreenState extends State<MatchScreen> {
                                 ],
                               ),
                             ),
-                          ),
-                        );
+                          );
                       },
                     );
                   },

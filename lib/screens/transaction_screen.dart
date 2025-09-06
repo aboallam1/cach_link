@@ -25,6 +25,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
   bool noCandidates = false;
   List<DocumentSnapshot> candidates = [];
 
+  // Transaction fee constant
+  static const double TRANSACTION_FEE = 0.003;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -205,6 +208,70 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
   }
 
+  // Check wallet balance
+  Future<bool> _checkWalletBalance() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+
+      final walletDoc = await FirebaseFirestore.instance
+          .collection('wallets')
+          .doc(user.uid)
+          .get();
+
+      final double balance = walletDoc.exists ? 
+          (walletDoc.data()?['balance'] ?? 0.0).toDouble() : 0.0;
+
+      return balance >= TRANSACTION_FEE;
+    } catch (e) {
+      print('Error checking wallet balance: $e');
+      return false;
+    }
+  }
+
+  void _showInsufficientBalanceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Insufficient Balance'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'You need at least ${TRANSACTION_FEE.toStringAsFixed(3)} EGP in your wallet to create a transaction.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'This amount will be deducted as a service fee when your transaction is completed.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed('/wallet');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Recharge Wallet'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     final loc = AppLocalizations.of(context)!;
     if (_type == null || _amountController.text.isEmpty || _location == null) {
@@ -220,14 +287,26 @@ class _TransactionScreenState extends State<TransactionScreen> {
       return;
     }
 
+    // Check wallet balance before proceeding
     setState(() => _loading = true);
-    final user = FirebaseAuth.instance.currentUser!;
+    
+    final hasSufficientBalance = await _checkWalletBalance();
+    if (!hasSufficientBalance) {
+      setState(() => _loading = false);
+      _showInsufficientBalanceDialog();
+      return;
+    }
 
-    // Record transaction in Firestore with radius 10km
+    final user = FirebaseAuth.instance.currentUser!;
+    final amount = double.parse(_amountController.text);
+    final fee = amount * TRANSACTION_FEE; // Calculate fee as 0.003 * amount
+
+    // Record transaction in Firestore with calculated fee
     await FirebaseFirestore.instance.collection('transactions').add({
       'userId': user.uid,
       'type': _type,
-      'amount': double.parse(_amountController.text),
+      'amount': amount,
+      'fee': fee, // Store the calculated fee
       'location': {
         'lat': _location!.latitude,
         'lng': _location!.longitude,
@@ -236,6 +315,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
       'exchangeRequestedBy': null,
       'instapayConfirmed': false,
       'cashConfirmed': false,
+      'feeDeducted': false,
       'createdAt': FieldValue.serverTimestamp(),
       'expiresAt': DateTime.now().add(const Duration(minutes: 30)).toIso8601String(),
       'searchRadius': 10,
@@ -274,6 +354,13 @@ class _TransactionScreenState extends State<TransactionScreen> {
         title: Text(loc.NewTransaction), // Use getter, not property with space
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet),
+            onPressed: () => Navigator.of(context).pushNamed('/wallet'),
+            tooltip: 'Wallet',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -291,6 +378,32 @@ class _TransactionScreenState extends State<TransactionScreen> {
             Text(
               loc.descriptionOfNewTransaction,
               style: theme.textTheme.bodyMedium,
+            ),
+            
+            // Fee information
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.orange.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Transaction fee: 0.3% of transaction amount will be deducted from your wallet when both parties accept.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 

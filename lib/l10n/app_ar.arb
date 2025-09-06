@@ -41,5 +41,6 @@
   "completed": "تم الإكمال",
   "ratePartner": "قيّم الشريك",
   "transactionType": "نوع المعاملة",
-  "status": "الحالة"
+  "status": "الحالة",
+  "searchForMatches": "البحث عن المطابقات"
 }

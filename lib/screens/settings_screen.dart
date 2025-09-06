@@ -43,21 +43,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: Text(loc.settings)),
       body: ListView(
         children: [
+          // Wallet Section
+          Card(
+            margin: const EdgeInsets.all(8),
+            child: ListTile(
+              leading: const Icon(Icons.account_balance_wallet, color: Colors.blue),
+              title: const Text('My Wallet'),
+              subtitle: const Text('Manage your wallet balance and transactions'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.of(context).pushNamed('/wallet');
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Language Settings
           ExpansionTile(
             leading: const Icon(Icons.language),
             title: Text(loc.changeLanguage),
             children: [
               ListTile(
                 title: const Text("العربية"),
+                trailing: Icon(
+                  Icons.check, 
+                  color: Localizations.localeOf(context).languageCode == 'ar' 
+                    ? Colors.green 
+                    : Colors.transparent
+                ),
                 onTap: () => _changeLanguage("ar"),
               ),
               ListTile(
                 title: const Text("English"),
+                trailing: Icon(
+                  Icons.check, 
+                  color: Localizations.localeOf(context).languageCode == 'en' 
+                    ? Colors.green 
+                    : Colors.transparent
+                ),
                 onTap: () => _changeLanguage("en"),
               ),
             ],
           ),
+          
+          // Other Settings
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip),
+            title: const Text('Privacy Policy'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              // Add privacy policy navigation
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Privacy Policy - Coming Soon')),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.help),
+            title: const Text('Help & Support'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              // Add help navigation
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Help & Support - Coming Soon')),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.info),
+            title: const Text('About'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              // Add about navigation
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('About - Coming Soon')),
+              );
+            },
+          ),
+          
+          const Divider(),
+          
+          // Logout
           ListTile(
             leading: const Icon(Icons.exit_to_app, color: Colors.red),
             title: Text(loc.logout, style: const TextStyle(color: Colors.red)),
@@ -66,6 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         selectedItemColor: const Color(0xFFE53935),
         unselectedItemColor: Colors.grey,
