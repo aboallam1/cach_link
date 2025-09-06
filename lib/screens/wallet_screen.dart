@@ -201,7 +201,6 @@ class _WalletScreenState extends State<WalletScreen> {
           BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.profile),
           BottomNavigationBarItem(icon: const Icon(Icons.history), label: loc.history),
           BottomNavigationBarItem(icon: const Icon(Icons.settings), label: loc.settings),
-          BottomNavigationBarItem(icon: const Icon(Icons.account_balance_wallet), label: loc.wallet),
         ],
       ),
     );
