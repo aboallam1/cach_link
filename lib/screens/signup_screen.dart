@@ -132,9 +132,9 @@ class _SignupScreenState extends State<SignupScreen> {
       await showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Signup successful'),
-          content: const Text('Your account has been created with 10 EGP welcome bonus!\n\nNote: Transaction fees are 0.3% of the transaction amount.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          title: Text(loc.signupSuccessful),
+          content: Text(loc.accountCreatedWithBonus),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.ok))],
         ),
       );
       if (!mounted) return;
@@ -148,9 +148,9 @@ class _SignupScreenState extends State<SignupScreen> {
         await showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Signup error'),
+            title: Text(loc.signupError),
             content: Text(e.toString()),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.ok))],
           ),
         );
       }
@@ -193,7 +193,7 @@ class _SignupScreenState extends State<SignupScreen> {
           return WillPopScope(
             onWillPop: () async => false,
             child: AlertDialog(
-              title: const Text('Enter 6‑digit Code'),
+              title: Text(loc.enterSmsCode),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -256,7 +256,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     Navigator.of(ctx).pop();
                     if (mounted) setState(() => _loading = false);
                   },
-                  child: const Text('Cancel'),
+                  child: Text(loc.cancel),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -265,9 +265,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       showDialog(
                         context: ctx,
                         builder: (_) => AlertDialog(
-                          title: const Text('Invalid code'),
-                          content: const Text('Please enter the full 6-digit code.'),
-                          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+                          title: Text(loc.invalidCode),
+                          content: Text(loc.enterFullCode),
+                          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(loc.ok))],
                         ),
                       );
                       return;
@@ -277,7 +277,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     Navigator.of(ctx).pop();
                     _verifySmsCodeAndSignup();
                   },
-                  child: const Text('Verify'),
+                  child: Text(loc.verify),
                 ),
               ],
             ),

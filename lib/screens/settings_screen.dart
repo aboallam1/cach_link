@@ -48,8 +48,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             margin: const EdgeInsets.all(8),
             child: ListTile(
               leading: const Icon(Icons.account_balance_wallet, color: Colors.blue),
-              title: const Text('My Wallet'),
-              subtitle: const Text('Manage your wallet balance and transactions'),
+              title: Text(loc.myWallet),
+              subtitle: Text(loc.manageWallet),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Navigator.of(context).pushNamed('/wallet');
@@ -90,34 +90,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.privacy_tip),
-            title: const Text('Privacy Policy'),
+            title: Text(loc.privacyPolicy),
             trailing: const Icon(Icons.arrow_forward_ios),
             onTap: () {
-              // Add privacy policy navigation
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Privacy Policy - Coming Soon')),
+                SnackBar(content: Text('${loc.privacyPolicy} - ${loc.comingSoon}')),
               );
             },
           ),
           ListTile(
             leading: const Icon(Icons.help),
-            title: const Text('Help & Support'),
+            title: Text(loc.helpSupport),
             trailing: const Icon(Icons.arrow_forward_ios),
             onTap: () {
-              // Add help navigation
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Help & Support - Coming Soon')),
+                SnackBar(content: Text('${loc.helpSupport} - ${loc.comingSoon}')),
               );
             },
           ),
           ListTile(
             leading: const Icon(Icons.info),
-            title: const Text('About'),
+            title: Text(loc.about),
             trailing: const Icon(Icons.arrow_forward_ios),
             onTap: () {
-              // Add about navigation
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('About - Coming Soon')),
+                SnackBar(content: Text('${loc.about} - ${loc.comingSoon}')),
               );
             },
           ),
@@ -145,6 +142,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           BottomNavigationBarItem(icon: const Icon(Icons.settings), label: loc.settings),
         ],
       ),
+    );
+  }
+}
     );
   }
 }

@@ -131,18 +131,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const Icon(Icons.info, size: 48, color: Colors.blue),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Welcome to Cash Link',
-                        style: TextStyle(
+                      Text(
+                        loc.welcomeToCashLink,
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Find people nearby to exchange money safely',
+                      Text(
+                        loc.findPeopleNearby,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
+                        style: const TextStyle(color: Colors.grey),
                       ),
                     ],
                   ),

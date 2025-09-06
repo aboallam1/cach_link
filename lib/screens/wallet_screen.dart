@@ -41,7 +41,7 @@ class _WalletScreenState extends State<WalletScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Wallet'),
+        title: Text(loc.myWallet),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
@@ -67,7 +67,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     Icon(Icons.info, color: Colors.red.shade700),
                     const SizedBox(width: 8),
                     Text(
-                      'Transaction Fee',
+                      loc.transactionFee,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -97,7 +97,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'New users get 10 EGP welcome bonus!',
+                          loc.welcomeBonus,
                           style: TextStyle(
                             fontSize: 17,
                             color: Colors.green.shade700,
@@ -145,9 +145,9 @@ class _WalletScreenState extends State<WalletScreen> {
                       children: [
                         const Icon(Icons.history),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Wallet History',
-                          style: TextStyle(
+                        Text(
+                          loc.walletHistory,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -164,10 +164,10 @@ class _WalletScreenState extends State<WalletScreen> {
                         }
                         
                         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Center(
+                          return Center(
                             child: Text(
-                              'No wallet transactions yet',
-                              style: TextStyle(color: Colors.grey),
+                              loc.noWalletTransactions,
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           );
                         }
@@ -201,7 +201,7 @@ class _WalletScreenState extends State<WalletScreen> {
           BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.profile),
           BottomNavigationBarItem(icon: const Icon(Icons.history), label: loc.history),
           BottomNavigationBarItem(icon: const Icon(Icons.settings), label: loc.settings),
-          const BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Wallet'),
+          BottomNavigationBarItem(icon: const Icon(Icons.account_balance_wallet), label: loc.wallet),
         ],
       ),
     );

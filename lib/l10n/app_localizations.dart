@@ -117,6 +117,38 @@ class AppLocalizations {
       'created': 'Created',
       'ratePartner': 'Rate Partner',
       'searchForMatches': 'Search for matches',
+      'myWallet': 'My Wallet',
+      'walletHistory': 'Wallet History',
+      'transactionFee': 'Transaction Fee',
+      'noWalletTransactions': 'No wallet transactions yet',
+      'rechargeWallet': 'Recharge Wallet',
+      'welcomeBonus': 'New users get 10 EGP welcome bonus!',
+      'manageWallet': 'Manage your wallet balance and transactions',
+      'privacyPolicy': 'Privacy Policy',
+      'helpSupport': 'Help & Support',
+      'about': 'About',
+      'comingSoon': 'Coming Soon',
+      'welcomeToCashLink': 'Welcome to Cash Link',
+      'findPeopleNearby': 'Find people nearby to exchange money safely',
+      'goToTransactions': 'Go to Transactions',
+      'searchForExchangePartners': 'Search for Exchange Partners',
+      'findPeopleNearbyToExchange': 'Find people nearby to exchange money with',
+      'noTransactionsYet': 'No transactions yet',
+      'transactionHistoryWillAppear': 'Your transaction history will appear here',
+      'pleaseLogInToView': 'Please log in to view transactions',
+      'wallet': 'Wallet',
+      'insufficientBalance': 'Insufficient Balance',
+      'needMinimumBalance': 'You need at least {amount} EGP in your wallet to create a transaction.',
+      'feeDeductedWhenCompleted': 'This amount will be deducted as a service fee when your transaction is completed.',
+      'goToWallet': 'Go to Wallet',
+      'exchangeAccepted': 'Exchange accepted! Fees have been deducted from both wallets.',
+      'errorAcceptingExchange': 'Error accepting exchange: {error}',
+      'invalidCode': 'Invalid code',
+      'enterFullCode': 'Please enter the full 6-digit code.',
+      'signupSuccessful': 'Signup successful',
+      'accountCreatedWithBonus': 'Your account has been created with 10 EGP welcome bonus!\n\nNote: Transaction fees are 0.3% of the transaction amount.',
+      'signupError': 'Signup error',
+      'ok': 'OK',
     },
     'ar': {
       'appTitle': 'كاش لينك',
@@ -218,6 +250,38 @@ class AppLocalizations {
       'created': 'تم الإنشاء',
       'ratePartner': 'قيم الشريك',
       'searchForMatches': 'ابحث عن المطابقات',
+      'myWallet': 'محفظتي',
+      'walletHistory': 'تاريخ المحفظة',
+      'transactionFee': 'رسوم المعاملة',
+      'noWalletTransactions': 'لا توجد معاملات محفظة بعد',
+      'rechargeWallet': 'شحن المحفظة',
+      'welcomeBonus': 'المستخدمون الجدد يحصلون على مكافأة ترحيب 10 جنيه!',
+      'manageWallet': 'إدارة رصيد محفظتك والمعاملات',
+      'privacyPolicy': 'سياسة الخصوصية',
+      'helpSupport': 'المساعدة والدعم',
+      'about': 'حول',
+      'comingSoon': 'قريباً',
+      'welcomeToCashLink': 'مرحباً بك في كاش لينك',
+      'findPeopleNearby': 'اعثر على أشخاص قريبين لتبادل الأموال بأمان',
+      'goToTransactions': 'اذهب إلى المعاملات',
+      'searchForExchangePartners': 'البحث عن شركاء التبادل',
+      'findPeopleNearbyToExchange': 'اعثر على أشخاص قريبين لتبادل الأموال معهم',
+      'noTransactionsYet': 'لا توجد معاملات بعد',
+      'transactionHistoryWillAppear': 'سيظهر تاريخ معاملاتك هنا',
+      'pleaseLogInToView': 'يرجى تسجيل الدخول لعرض المعاملات',
+      'wallet': 'المحفظة',
+      'insufficientBalance': 'رصيد غير كافي',
+      'needMinimumBalance': 'تحتاج إلى ما لا يقل عن {amount} جنيه في محفظتك لإنشاء معاملة.',
+      'feeDeductedWhenCompleted': 'سيتم خصم هذا المبلغ كرسوم خدمة عند اكتمال معاملتك.',
+      'goToWallet': 'اذهب إلى المحفظة',
+      'exchangeAccepted': 'تم قبول التبادل! تم خصم الرسوم من كلا المحفظتين.',
+      'errorAcceptingExchange': 'خطأ في قبول التبادل: {error}',
+      'invalidCode': 'رمز غير صالح',
+      'enterFullCode': 'يرجى إدخال الرمز المكون من 6 أرقام كاملاً.',
+      'signupSuccessful': 'تم التسجيل بنجاح',
+      'accountCreatedWithBonus': 'تم إنشاء حسابك مع مكافأة ترحيب 10 جنيه!\n\nملاحظة: رسوم المعاملات هي 0.3% من مبلغ المعاملة.',
+      'signupError': 'خطأ في التسجيل',
+      'ok': 'موافق',
     },
   };
 
@@ -330,6 +394,38 @@ class AppLocalizations {
   String get created => _t('created');
   String get ratePartner => _t('ratePartner');
   String get searchForMatches => _t('searchForMatches');
+  String get myWallet => _t('myWallet');
+  String get walletHistory => _t('walletHistory');
+  String get transactionFee => _t('transactionFee');
+  String get noWalletTransactions => _t('noWalletTransactions');
+  String get rechargeWallet => _t('rechargeWallet');
+  String get welcomeBonus => _t('welcomeBonus');
+  String get manageWallet => _t('manageWallet');
+  String get privacyPolicy => _t('privacyPolicy');
+  String get helpSupport => _t('helpSupport');
+  String get about => _t('about');
+  String get comingSoon => _t('comingSoon');
+  String get welcomeToCashLink => _t('welcomeToCashLink');
+  String get findPeopleNearby => _t('findPeopleNearby');
+  String get goToTransactions => _t('goToTransactions');
+  String get searchForExchangePartners => _t('searchForExchangePartners');
+  String get findPeopleNearbyToExchange => _t('findPeopleNearbyToExchange');
+  String get noTransactionsYet => _t('noTransactionsYet');
+  String get transactionHistoryWillAppear => _t('transactionHistoryWillAppear');
+  String get pleaseLogInToView => _t('pleaseLogInToView');
+  String get wallet => _t('wallet');
+  String get insufficientBalance => _t('insufficientBalance');
+  String get needMinimumBalance => _t('needMinimumBalance');
+  String get feeDeductedWhenCompleted => _t('feeDeductedWhenCompleted');
+  String get goToWallet => _t('goToWallet');
+  String get exchangeAccepted => _t('exchangeAccepted');
+  String get errorAcceptingExchange => _t('errorAcceptingExchange');
+  String get invalidCode => _t('invalidCode');
+  String get enterFullCode => _t('enterFullCode');
+  String get signupSuccessful => _t('signupSuccessful');
+  String get accountCreatedWithBonus => _t('accountCreatedWithBonus');
+  String get signupError => _t('signupError');
+  String get ok => _t('ok');
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
