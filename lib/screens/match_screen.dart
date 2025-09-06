@@ -608,42 +608,52 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _respondToRequest(DocumentSnapshot tx, bool accept) async {
+    final loc = AppLocalizations.of(context)!;
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
     if (accept) {
-      final batch = FirebaseFirestore.instance.batch();
-      final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
-      final otherRef = FirebaseFirestore.instance.collection('transactions').doc(tx.id);
+      setState(() => _loading = true);
       
-      // Accept the request - update both specific transactions
-      batch.update(myRef, {
-        'status': 'accepted',
-        'acceptedAt': FieldValue.serverTimestamp(),
-        'requestTag': FieldValue.delete(),
-      });
-      batch.update(otherRef, {
-        'status': 'accepted', 
-        'acceptedAt': FieldValue.serverTimestamp(),
-        'requestTag': FieldValue.delete(),
-      });
-      
-      await batch.commit();
+      try {
+        // Process the transaction acceptance and fee deduction
+        await TransactionService.processTransactionAcceptance(_myTx!.id, tx.id);
 
-      final txData = tx.data() as Map<String, dynamic>;
-      final requesterUserId = txData['exchangeRequestedBy'];
-      if (requesterUserId != null) {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(requesterUserId).get();
-        final userName = userDoc.data()?['name'] ?? 'User';
-        VoiceService().speakRequestAccepted(userName);
+        final txData = tx.data() as Map<String, dynamic>;
+        final requesterUserId = txData['exchangeRequestedBy'];
+        if (requesterUserId != null) {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(requesterUserId).get();
+          final userName = userDoc.data()?['name'] ?? 'User';
+          VoiceService().speakRequestAccepted(userName);
+        }
+        
+        if (!mounted) return;
+        setState(() { 
+          _requestedTxId = null;
+          _loading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loc.exchangeAccepted),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        Navigator.of(context).pushNamed('/agreement', arguments: {
+          'myTxId': _myTx!.id,
+          'otherTxId': tx.id,
+        });
+      } catch (e) {
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(loc.errorAcceptingExchange.replaceAll('{error}', e.toString())),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-      
-      if (!mounted) return;
-      // Clear local requested id (we're moving to agreement)
-      setState(() { _requestedTxId = null; });
-      Navigator.of(context).pushNamed('/agreement', arguments: {
-        'myTxId': _myTx!.id,
-        'otherTxId': tx.id,
-      });
     } else {
       // Reject the request - reset both specific transactions to pending and clear requestTag
       final batch = FirebaseFirestore.instance.batch();
@@ -1224,8 +1234,8 @@ class _MatchScreenState extends State<MatchScreen> {
                                 ],
                               ),
                             ),
-                          ),
-                        );
+                          );
+                        };
                       },
                     );
                   },

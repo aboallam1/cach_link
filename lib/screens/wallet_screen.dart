@@ -208,6 +208,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Widget _buildTransactionTile(WalletTransaction tx) {
+    final loc = AppLocalizations.of(context)!;
     final isCredit = tx.amount > 0;
     final icon = tx.type == 'deposit' 
         ? Icons.add_circle 
@@ -217,36 +218,108 @@ class _WalletScreenState extends State<WalletScreen> {
     
     final color = isCredit ? Colors.green : Colors.red;
     
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: color.withOpacity(0.1),
-        child: Icon(icon, color: color),
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withOpacity(0.1),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(
+          tx.description,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _formatTransactionDate(tx.createdAt),
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            if (tx.relatedTransactionId != null)
+              Text(
+                'Transaction ID: ${tx.relatedTransactionId!.substring(0, 8)}...',
+                style: const TextStyle(color: Colors.grey, fontSize: 10),
+              ),
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${isCredit ? '+' : ''}${tx.amount.toStringAsFixed(3)} EGP',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 16,
+              ),
+            ),
+            Text(
+              '${loc.walletBalance}: ${tx.balanceAfter.toStringAsFixed(3)}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+        onTap: () => _showTransactionDetails(tx),
       ),
-      title: Text(
-        tx.description,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+    );
+  }
+
+  void _showTransactionDetails(WalletTransaction tx) {
+    final loc = AppLocalizations.of(context)!;
+    final isCredit = tx.amount > 0;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(loc.transactionDetails),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Type', tx.type.toUpperCase()),
+            _buildDetailRow('Amount', '${isCredit ? '+' : ''}${tx.amount.toStringAsFixed(3)} EGP'),
+            _buildDetailRow('Description', tx.description),
+            _buildDetailRow('Date', _formatTransactionDate(tx.createdAt)),
+            _buildDetailRow('Balance Before', '${tx.balanceBefore.toStringAsFixed(3)} EGP'),
+            _buildDetailRow('Balance After', '${tx.balanceAfter.toStringAsFixed(3)} EGP'),
+            if (tx.relatedTransactionId != null)
+              _buildDetailRow('Related Transaction', tx.relatedTransactionId!),
+            if (tx.paymentReference != null)
+              _buildDetailRow('Payment Reference', tx.paymentReference!),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(loc.close),
+          ),
+        ],
       ),
-      subtitle: Text(
-        _formatTransactionDate(tx.createdAt),
-        style: const TextStyle(color: Colors.grey),
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${isCredit ? '+' : ''}${tx.amount.toStringAsFixed(3)} EGP',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontSize: 16,
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          Text(
-            'Balance: ${tx.balanceAfter.toStringAsFixed(3)}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.grey),
             ),
           ),
         ],

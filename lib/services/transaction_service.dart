@@ -48,15 +48,13 @@ class TransactionService {
       final txData = txDoc.data()!;
       final partnerTxData = partnerTxDoc.data()!;
       
-      print('Transaction statuses: ${txData['status']}, ${partnerTxData['status']}');
-      
-      // Calculate fees for both transactions
+      // Calculate fees for both transactions (0.3% of transaction amount)
       final txAmount = (txData['amount'] as num).toDouble();
       final partnerAmount = (partnerTxData['amount'] as num).toDouble();
-      final txFee = txAmount * TRANSACTION_FEE_RATE;
-      final partnerFee = partnerAmount * TRANSACTION_FEE_RATE;
+      final txFee = txAmount * TRANSACTION_FEE_RATE; // 0.003 * amount
+      final partnerFee = partnerAmount * TRANSACTION_FEE_RATE; // 0.003 * amount
       
-      print('Calculated fees: $txFee for tx, $partnerFee for partner');
+      print('Calculated fees: $txFee for tx (${txAmount}), $partnerFee for partner (${partnerAmount})');
       
       final userId = txData['userId'] as String;
       final partnerUserId = partnerTxData['userId'] as String;
@@ -76,19 +74,20 @@ class TransactionService {
       final partnerBalance = (partnerWalletDoc.data()!['balance'] as num).toDouble();
       
       print('Current balances: user=$userBalance, partner=$partnerBalance');
+      print('Required fees: user needs $txFee, partner needs $partnerFee');
       
-      // Check if both users have sufficient balance
+      // Check if both users have sufficient balance for fees
       if (userBalance < txFee) {
-        throw Exception('Insufficient balance for user: required ${txFee.toStringAsFixed(3)}, available ${userBalance.toStringAsFixed(3)}');
+        throw Exception('Insufficient balance for user: required ${txFee.toStringAsFixed(3)} EGP, available ${userBalance.toStringAsFixed(3)} EGP');
       }
       
       if (partnerBalance < partnerFee) {
-        throw Exception('Insufficient balance for partner: required ${partnerFee.toStringAsFixed(3)}, available ${partnerBalance.toStringAsFixed(3)}');
+        throw Exception('Insufficient balance for partner: required ${partnerFee.toStringAsFixed(3)} EGP, available ${partnerBalance.toStringAsFixed(3)} EGP');
       }
       
       final now = FieldValue.serverTimestamp();
       
-      // Update wallets with fee deductions
+      // Deduct fees from both wallets
       transaction.update(userWalletRef, {
         'balance': userBalance - txFee,
         'totalSpent': FieldValue.increment(txFee),
@@ -101,7 +100,7 @@ class TransactionService {
         'lastUpdated': now,
       });
       
-      print('Updated wallet balances');
+      print('Updated wallet balances: user=${userBalance - txFee}, partner=${partnerBalance - partnerFee}');
       
       // Update transaction statuses to accepted
       transaction.update(txRef, {
@@ -120,19 +119,23 @@ class TransactionService {
         'updatedAt': now,
       });
       
-      print('Updated transaction statuses');
+      print('Updated transaction statuses to accepted');
       
-      // Create wallet transaction records
+      // Create detailed wallet transaction records for fee deductions
       final userWalletTxRef = firestore.collection('wallet_transactions').doc();
       transaction.set(userWalletTxRef, {
         'userId': userId,
         'type': 'fee_deduction',
         'amount': -txFee,
-        'description': 'Transaction fee for ${txData['type']} of ${txAmount.toStringAsFixed(2)} EGP',
+        'description': 'Transaction fee for ${txData['type']} of ${txAmount.toStringAsFixed(2)} EGP (0.3% service fee)',
         'relatedTransactionId': transactionId,
         'balanceBefore': userBalance,
         'balanceAfter': userBalance - txFee,
+        'feeRate': TRANSACTION_FEE_RATE,
+        'originalAmount': txAmount,
+        'partnerUserId': partnerUserId,
         'createdAt': now,
+        'status': 'completed',
       });
       
       final partnerWalletTxRef = firestore.collection('wallet_transactions').doc();
@@ -140,14 +143,18 @@ class TransactionService {
         'userId': partnerUserId,
         'type': 'fee_deduction',
         'amount': -partnerFee,
-        'description': 'Transaction fee for ${partnerTxData['type']} of ${partnerAmount.toStringAsFixed(2)} EGP',
+        'description': 'Transaction fee for ${partnerTxData['type']} of ${partnerAmount.toStringAsFixed(2)} EGP (0.3% service fee)',
         'relatedTransactionId': partnerTransactionId,
         'balanceBefore': partnerBalance,
         'balanceAfter': partnerBalance - partnerFee,
+        'feeRate': TRANSACTION_FEE_RATE,
+        'originalAmount': partnerAmount,
+        'partnerUserId': userId,
         'createdAt': now,
+        'status': 'completed',
       });
       
-      print('Created wallet transaction records');
+      print('Created wallet transaction records for fee deductions');
       
       // Clear any existing notifications related to this transaction
       final notificationsQuery = await firestore
@@ -159,7 +166,7 @@ class TransactionService {
         transaction.delete(notifDoc.reference);
       }
       
-      print('Cleared notifications');
+      print('Cleared notifications and completed transaction processing');
     });
   }
 
@@ -279,4 +286,5 @@ class TransactionService {
     }
     return 0.0;
   }
+}
 }

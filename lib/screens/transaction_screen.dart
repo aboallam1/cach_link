@@ -418,7 +418,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Transaction fee: 0.3% of transaction amount will be deducted from your wallet when both parties accept.',
+                      loc.transactionFeeWillBeDeducted,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.orange.shade700,

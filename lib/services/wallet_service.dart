@@ -76,16 +76,17 @@ class WalletService {
           'lastUpdated': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
-        // Create transaction record
+        // Create transaction record with more details
         transaction.set(_firestore.collection('wallet_transactions').doc(), {
           'userId': user.uid,
           'type': 'deposit',
           'amount': amount,
-          'description': 'Wallet recharge via payment gateway',
+          'description': 'Wallet recharge via payment gateway - ${amount.toStringAsFixed(2)} EGP',
           'paymentReference': paymentReference,
           'balanceBefore': currentBalance,
           'balanceAfter': newBalance,
           'createdAt': FieldValue.serverTimestamp(),
+          'status': 'completed',
         });
       });
 
@@ -96,12 +97,17 @@ class WalletService {
     }
   }
 
-  // Manually deduct fee from wallet (for testing)
-  Future<bool> deductTransactionFee(double transactionAmount, String transactionId) async {
+  // Process fee deduction with detailed transaction record
+  Future<bool> deductFee({
+    required double amount,
+    required double feeRate,
+    required String transactionId,
+    required String description,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return false;
 
-    final fee = transactionAmount * TRANSACTION_FEE;
+    final fee = amount * feeRate;
 
     try {
       await _firestore.runTransaction((transaction) async {
@@ -127,16 +133,19 @@ class WalletService {
           'lastUpdated': FieldValue.serverTimestamp(),
         });
 
-        // Create transaction record
+        // Create detailed transaction record
         transaction.set(_firestore.collection('wallet_transactions').doc(), {
           'userId': user.uid,
           'type': 'fee_deduction',
           'amount': -fee,
-          'description': 'Transaction fee for amount ${transactionAmount.toStringAsFixed(2)} EGP',
+          'description': description,
           'relatedTransactionId': transactionId,
           'balanceBefore': currentBalance,
           'balanceAfter': newBalance,
+          'feeRate': feeRate,
+          'originalAmount': amount,
           'createdAt': FieldValue.serverTimestamp(),
+          'status': 'completed',
         });
       });
 
