@@ -60,6 +60,12 @@ class MyAppState extends State<MyApp> {
         Locale('en'),
         Locale('ar'),
       ],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       // Resolve device locale -> use it if supported, otherwise fallback to English
       localeResolutionCallback: (deviceLocale, supportedLocales) {
         if (deviceLocale == null) return const Locale('en');

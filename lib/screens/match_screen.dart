@@ -442,70 +442,97 @@ class _MatchScreenState extends State<MatchScreen> {
 
     final myRef = FirebaseFirestore.instance.collection('transactions').doc(_myTx!.id);
     final otherRef = FirebaseFirestore.instance.collection('transactions').doc(otherTx.id);
-
-    // create notification doc first so we can use its id as requestTag
     final notificationRef = FirebaseFirestore.instance.collection('notifications').doc();
-    final requestTag = notificationRef.id;
 
-    final batch = FirebaseFirestore.instance.batch();
-    // Update only MY transaction to show I sent a request and store requestTag
-    batch.update(myRef, {
-      'status': 'requested',
-      'partnerTxId': otherTx.id,
-      'exchangeRequestedBy': currentUserId,
-      'lockUntil': Timestamp.fromDate(_lockUntil!),
-      'requestTag': requestTag,
-    });
-    // Update only the SPECIFIC OTHER transaction to show they have a request and store requestTag
-    batch.update(otherRef, {
-      'status': 'requested',
-      'partnerTxId': _myTx!.id,
-      'exchangeRequestedBy': currentUserId,
-      'lockUntil': Timestamp.fromDate(_lockUntil!),
-      'requestTag': requestTag,
-    });
-    // Create notification only for the specific user and include requestTag
-    batch.set(notificationRef, {
-      'id': notificationRef.id,
-      'requestTag': requestTag,
-      'toUserId': otherUserId,
-      'fromUserId': currentUserId,
-      'myTxId': otherTx.id,
-      'otherTxId': _myTx!.id,
-      'amount': (_myTx!.data() as Map<String, dynamic>)['amount'],
-      'distance': _calculateDistance(otherTx),
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': DateTime.now().add(const Duration(seconds: 60)).toIso8601String(),
-    });
-
-    await batch.commit();
-
-    // remember requested id for local requester UI (optional)
-    if (mounted) {
-      setState(() { _requestedTxId = otherTx.id; });
-    }
-
-    // Remove myTx id from shownTo arrays of other candidates so they no longer show me (A -> C removes A from B)
     try {
-      for (var m in List<DocumentSnapshot>.from(_matches)) {
-        if (m.id == otherTx.id) continue;
-        await FirebaseFirestore.instance
-            .collection('transactions')
-            .doc(m.id)
-            .update({'shownTo': FieldValue.arrayRemove([_myTx!.id])});
+      // Atomic read-modify-write: ensure otherTx is still available
+      await FirebaseFirestore.instance.runTransaction((txn) async {
+        final mySnap = await txn.get(myRef);
+        final otherSnap = await txn.get(otherRef);
+        final myData = mySnap.data() as Map<String, dynamic>?;
+        final otherData = otherSnap.data() as Map<String, dynamic>?;
+
+        if (myData == null || otherData == null) {
+          throw FirebaseException(plugin: 'cachlink', message: 'Transactions missing');
+        }
+        final otherStatus = otherData['status'] as String? ?? 'pending';
+        final myStatus = myData['status'] as String? ?? 'pending';
+
+        // Only allow sending if both sides are still pending (no concurrent request)
+        if (otherStatus != 'pending') {
+          throw FirebaseException(plugin: 'cachlink', message: 'Target no longer available');
+        }
+        if (myStatus != 'pending') {
+          throw FirebaseException(plugin: 'cachlink', message: 'Your transaction is no longer pending');
+        }
+
+        final requestTag = notificationRef.id;
+        txn.update(myRef, {
+          'status': 'requested',
+          'partnerTxId': otherTx.id,
+          'exchangeRequestedBy': currentUserId,
+          'lockUntil': Timestamp.fromDate(_lockUntil!),
+          'requestTag': requestTag,
+        });
+        txn.update(otherRef, {
+          'status': 'requested',
+          'partnerTxId': _myTx!.id,
+          'exchangeRequestedBy': currentUserId,
+          'lockUntil': Timestamp.fromDate(_lockUntil!),
+          'requestTag': requestTag,
+        });
+        txn.set(notificationRef, {
+          'id': notificationRef.id,
+          'requestTag': requestTag,
+          'toUserId': otherUserId,
+          'fromUserId': currentUserId,
+          'myTxId': otherTx.id,
+          'otherTxId': _myTx!.id,
+          'amount': (_myTx!.data() as Map<String, dynamic>)['amount'],
+          'distance': _calculateDistance(otherTx),
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt': DateTime.now().add(const Duration(seconds: 60)).toIso8601String(),
+        });
+      });
+
+      // remember requested id for local requester UI (optional)
+      if (mounted) {
+        setState(() { _requestedTxId = otherTx.id; });
       }
-    } catch (_) {
-      // ignore errors - not critical
+
+      VoiceService().speakRequestSent();
+      if (!mounted) return;
+      Navigator.of(context).pushNamed('/agreement', arguments: {
+        'myTxId': _myTx!.id,
+        'otherTxId': otherTx.id,
+      });
+    } on FirebaseException catch (e) {
+      // Known conflict or validation error from transaction
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Request failed due to concurrent update')),
+        );
+        // refresh matches so UI reflects latest state
+        await _findMatches();
+        setState(() {
+          _lockActive = false;
+          _lockUntil = null;
+        });
+      }
+    } catch (e) {
+      // Network or unexpected error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send request. Please try again.')),
+        );
+        await _findMatches();
+        setState(() {
+          _lockActive = false;
+          _lockUntil = null;
+        });
+      }
     }
-
-    VoiceService().speakRequestSent();
-
-    if (!mounted) return;
-    Navigator.of(context).pushNamed('/agreement', arguments: {
-      'myTxId': _myTx!.id,
-      'otherTxId': otherTx.id,
-    });
   }
 
   Future<void> _respondToRequest(DocumentSnapshot tx, bool accept) async {
