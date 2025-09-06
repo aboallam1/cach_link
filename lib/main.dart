@@ -143,7 +143,7 @@ class MyAppState extends State<MyApp> {
         '/settings': (_) => const SettingsScreen(),
         '/history': (_) => const HistoryScreen(),
         '/notifications': (_) => const NotificationsScreen(),
-        '/wallet': (_) => const WalletScreen(),
+        '/settings/wallet': (_) => const WalletScreen(),
       },
     );
   }

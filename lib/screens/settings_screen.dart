@@ -52,7 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(loc.manageWallet),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
-                Navigator.of(context).pushNamed('/wallet');
+                Navigator.of(context).pushNamed('/settings/wallet');
               },
             ),
           ),

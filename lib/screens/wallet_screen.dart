@@ -27,7 +27,7 @@ class _WalletScreenState extends State<WalletScreen> {
         Navigator.of(context).pushReplacementNamed('/history');
         break;
       case 3:
-        Navigator.of(context).pushReplacementNamed('/settings');
+        Navigator.of(context).pushReplacementNamed('/settings/wallet');
         break;
       case 4:
         // Already on wallet screen

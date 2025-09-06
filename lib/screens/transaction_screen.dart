@@ -285,7 +285,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pushNamed('/wallet');
+              Navigator.of(context).pushNamed('/settings/wallet');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
             child: Text(loc.goToWallet),
@@ -380,7 +380,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.account_balance_wallet),
-            onPressed: () => Navigator.of(context).pushNamed('/wallet'),
+            onPressed: () => Navigator.of(context).pushNamed('/settings/wallet'),
             tooltip: 'Wallet',
           ),
         ],
