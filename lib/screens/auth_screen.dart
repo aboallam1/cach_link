@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cashlink/l10n/app_localizations.dart';
+import 'dart:async';
+import 'dart:math';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -72,7 +74,6 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
-      // Null check for _verificationId
       if (_verificationId == null || _smsController.text.trim().isEmpty) {
         setState(() {
           _error = 'Verification code is missing. Please try again.';
@@ -81,7 +82,6 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      // Verify OTP with Firebase Auth
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: _smsController.text.trim(),
@@ -89,7 +89,6 @@ class _AuthScreenState extends State<AuthScreen> {
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // Search user in Firestore by full phone number
       final userQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('phone', isEqualTo: _fullPhoneNumber)
@@ -101,72 +100,217 @@ class _AuthScreenState extends State<AuthScreen> {
           _error = 'No user found with this phone.';
           _loading = false;
         });
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Login failed'),
+            content: const Text('No account is associated with this number.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
         return;
       }
 
       final userDoc = userQuery.docs.first;
       final userData = userDoc.data();
-
-      // Check password
       if (userData['password'] != _password) {
         setState(() {
           _error = 'Incorrect password.';
           _loading = false;
         });
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Authentication failed'),
+            content: const Text('The password you entered is incorrect.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
         return;
       }
 
-      // Navigate to home
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
+      // Success: show a brief success dialog then navigate
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Login successful'),
+          content: const Text('You are now logged in.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('OK'),
+            )
+          ],
+        ),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/home');
     } catch (e) {
       setState(() {
         _error = 'Login failed. Try again.';
         _loading = false;
       });
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Verification error'),
+          content: Text(e.toString()),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   // SMS input dialog
   void _showSmsCodeDialog() {
+    // Enhanced OTP dialog with 6-digit inputs, timer, progress bar and resend behavior.
+    List<TextEditingController> otpControllers = List.generate(6, (_) => TextEditingController());
+    List<FocusNode> otpFocus = List.generate(6, (_) => FocusNode());
+    int remaining = 60;
+    Timer? dialogTimer;
+    bool resendEnabled = false;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Enter SMS Code'),
-        content: TextField(
-          controller: _smsController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'SMS Code'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              setState(() => _loading = false);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Prevent null check error if _verificationId is null
-              if (_verificationId == null) {
-                setState(() {
-                  _error = 'Verification ID missing. Please try again.';
-                  _loading = false;
-                });
-                Navigator.of(ctx).pop();
-                return;
-              }
-              Navigator.of(ctx).pop();
-              _verifySmsCodeAndLogin();
-            },
-            child: const Text('Verify'),
-          ),
-        ],
-      ),
-    );
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx2, setStateDialog) {
+          void startTimer() {
+            dialogTimer?.cancel();
+            remaining = 60;
+            resendEnabled = false;
+            dialogTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+              if (!mounted) return;
+              setStateDialog(() {
+                remaining--;
+                if (remaining <= 0) {
+                  resendEnabled = true;
+                  dialogTimer?.cancel();
+                }
+              });
+            });
+          }
+
+          // start timer when dialog is built
+          if (dialogTimer == null || !dialogTimer!.isActive) {
+            startTimer();
+          }
+
+          double progress = (60 - remaining) / 60;
+          return WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              title: const Text('Enter 6‑digit Code'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(value: (remaining > 0) ? remaining / 60 : 0.0),
+                  const SizedBox(height: 8),
+                  Text('Expires in ${remaining}s'),
+                  const SizedBox(height: 12),
+                  // replace the Row of OTP boxes with flexible constrained boxes
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (i) {
+                      return Flexible(
+                        fit: FlexFit.loose,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 36.0, maxWidth: 56.0, minHeight: 48.0),
+                            child: IntrinsicWidth(
+                              child: TextField(
+                                controller: otpControllers[i],
+                                focusNode: otpFocus[i],
+                                textAlign: TextAlign.center,
+                                keyboardType: TextInputType.number,
+                                maxLength: 1,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                decoration: const InputDecoration(counterText: ''),
+                                onChanged: (v) {
+                                  if (v.isNotEmpty && i < 5) {
+                                    otpFocus[i + 1].requestFocus();
+                                  } else if (v.isEmpty && i > 0) {
+                                    otpFocus[i - 1].requestFocus();
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: resendEnabled
+                        ? () async {
+                            // Immediately update dialog UI: disable resend, reset remaining and clear OTP inputs
+                            setStateDialog(() {
+                              resendEnabled = false;
+                              remaining = 60;
+                            });
+                            // clear OTP inputs
+                            for (var c in otpControllers) { c.clear(); }
+                            // restart timer
+                            dialogTimer?.cancel();
+                            startTimer();
+                            // call send (async) — keep UI responsive even if send takes time
+                            try {
+                              await _startPhoneLogin();
+                            } catch (_) {
+                              // ignore; verification will report errors via _error
+                            }
+                          }
+                        : null,
+                    child: Text(resendEnabled ? 'Resend Code' : 'Resend (wait)'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    dialogTimer?.cancel();
+                    Navigator.of(ctx).pop();
+                    if (mounted) setState(() => _loading = false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final code = otpControllers.map((c) => c.text.trim()).join();
+                    if (code.length != 6) {
+                      // show inline error dialog
+                      showDialog(
+                        context: ctx,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Invalid code'),
+                          content: const Text('Please enter the full 6-digit code.'),
+                          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+                        ),
+                      );
+                      return;
+                    }
+                    _smsController.text = code;
+                    dialogTimer?.cancel();
+                    Navigator.of(ctx).pop();
+                    _verifySmsCodeAndLogin();
+                  },
+                  child: const Text('Verify'),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    ).then((_) {
+      // cleanup
+    });
   }
 
   @override
@@ -178,6 +322,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    // Make Auth page visually match Signup: same card layout, country code + phone, password, validators.
     return Scaffold(
       body: Center(
         child: Card(
@@ -195,10 +340,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     Text(loc.login + ' ${loc.appTitle}',
                         style: Theme.of(context).textTheme.headlineLarge),
                     const SizedBox(height: 16),
-                    if (_error != null)
-                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                    if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
 
-                    // Phone with country code
                     Row(
                       children: [
                         Flexible(
@@ -216,7 +359,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               ],
                               onChanged: (val) => setState(() => _countryCode = val ?? '+20'),
                               decoration: InputDecoration(
-                                labelText: loc.code, // Not ideal, but you can add a new key for "Code"
+                                labelText: loc.code,
                                 contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                                 border: const OutlineInputBorder(),
                               ),
@@ -227,51 +370,51 @@ class _AuthScreenState extends State<AuthScreen> {
                         Flexible(
                           flex: 5,
                           child: TextFormField(
-                            decoration: InputDecoration(
-                              labelText: loc.phone,
-                              border: const OutlineInputBorder(),
-                            ),
+                            decoration: InputDecoration(labelText: loc.phone, border: const OutlineInputBorder()),
                             keyboardType: TextInputType.phone,
+                            // style: const TextStyle(fontWeight: FontWeight.bold),
                             onChanged: (val) => _phone = val.trim(),
-                            validator: (val) =>
-                                val != null && val.trim().isNotEmpty && val.length >= 8
-                                    ? null
-                                    : loc.noTransactions, // Add a new key for "Enter valid number"
+                            validator: (val) {
+                              if (val == null) return loc.noTransactions;
+                              final digits = val.trim();
+                              final phoneReg = RegExp(r'^[0-9]{6,14}$');
+                              if (!phoneReg.hasMatch(digits)) return loc.noTransactions;
+                              return null;
+                            },
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
 
-                    // Password
                     TextFormField(
-                      decoration: InputDecoration(labelText: loc.password), // Add a new key for "Password"
+                      decoration: InputDecoration(labelText: loc.password),
                       obscureText: true,
                       onChanged: (val) => _password = val,
                       validator: (val) =>
-                          val != null && val.isNotEmpty && val.length >= 6
-                              ? null
-                              : loc.noTransactions, // Add a new key for "Password min 6 chars"
+                          val != null && val.isNotEmpty && val.length >= 6 ? null : loc.noTransactions,
                     ),
                     const SizedBox(height: 24),
 
-                    // Login button
                     _loading
                         ? const CircularProgressIndicator()
                         : ElevatedButton(
-                            onPressed: _loading ? null : () async {
-                              if (_formKey.currentState!.validate()) {
-                                // Use phone authentication instead of email/password
-                                _startPhoneLogin();
-                              }
-                            },
+                            onPressed: _loading
+                                ? null
+                                : () async {
+                                    if (_formKey.currentState!.validate()) {
+                                      // start phone verification (OTP) then verify and login
+                                      _startPhoneLogin();
+                                    }
+                                  },
                             child: Text(loc.login),
                           ),
+
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pushReplacementNamed('/signup');
                       },
-                      child: Text("${loc.signup}"),
+                      child: Text(loc.signup),
                     ),
                   ],
                 ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cashlink/l10n/app_localizations.dart';
+import 'dart:async';
+import 'dart:math';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -72,7 +74,6 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     try {
-      // Null check for _verificationId
       if (_verificationId == null || _smsController.text.trim().isEmpty) {
         setState(() {
           _error = 'Verification code is missing. Please try again.';
@@ -89,7 +90,6 @@ class _SignupScreenState extends State<SignupScreen> {
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
 
-      // Create user in Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -102,54 +102,162 @@ class _SignupScreenState extends State<SignupScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Signup successful'),
+          content: const Text('Your account has been created.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/home');
     } catch (e) {
       setState(() {
         _error = 'Invalid code or signup failed. Try again.';
         _loading = false;
       });
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Signup error'),
+            content: Text(e.toString()),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   void _showSmsCodeDialog() {
+    // reuse the same enhanced OTP dialog pattern used in auth_screen
+    List<TextEditingController> otpControllers = List.generate(6, (_) => TextEditingController());
+    List<FocusNode> otpFocus = List.generate(6, (_) => FocusNode());
+    int remaining = 60;
+    Timer? dialogTimer;
+    bool resendEnabled = false;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Enter SMS Code'),
-        content: TextField(
-          controller: _smsController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'SMS Code'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              setState(() => _loading = false);
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Prevent null check error if _verificationId is null
-              if (_verificationId == null) {
-                setState(() {
-                  _error = 'Verification ID missing. Please try again.';
-                  _loading = false;
-                });
-                Navigator.of(ctx).pop();
-                return;
-              }
-              Navigator.of(ctx).pop();
-              _verifySmsCodeAndSignup();
-            },
-            child: const Text('Verify'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx2, setStateDialog) {
+          void startTimer() {
+            dialogTimer?.cancel();
+            remaining = 60;
+            resendEnabled = false;
+            dialogTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+              if (!mounted) return;
+              setStateDialog(() {
+                remaining--;
+                if (remaining <= 0) {
+                  resendEnabled = true;
+                  dialogTimer?.cancel();
+                }
+              });
+            });
+          }
+
+          if (dialogTimer == null || !dialogTimer!.isActive) startTimer();
+
+          return WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              title: const Text('Enter 6‑digit Code'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  LinearProgressIndicator(value: (remaining > 0) ? remaining / 60 : 0.0),
+                  const SizedBox(height: 8),
+                  Text('Expires in ${remaining}s'),
+                  const SizedBox(height: 12),
+                  // Responsive OTP fields (avoid overflow on narrow dialogs)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (i) {
+                      return Flexible(
+                        fit: FlexFit.loose,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 36.0, maxWidth: 56.0, minHeight: 48.0),
+                            child: IntrinsicWidth(
+                              child: TextField(
+                                controller: otpControllers[i],
+                                focusNode: otpFocus[i],
+                                textAlign: TextAlign.center,
+                                keyboardType: TextInputType.number,
+                                maxLength: 1,
+                                decoration: const InputDecoration(counterText: ''),
+                                onChanged: (v) {
+                                  if (v.isNotEmpty && i < 5) {
+                                    otpFocus[i + 1].requestFocus();
+                                  } else if (v.isEmpty && i > 0) {
+                                    otpFocus[i - 1].requestFocus();
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: resendEnabled
+                        ? () async {
+                            try {
+                              await _startPhoneVerification();
+                              setStateDialog(() {
+                                startTimer();
+                              });
+                            } catch (_) {}
+                          }
+                        : null,
+                    child: Text(resendEnabled ? 'Resend Code' : 'Resend (wait)'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    dialogTimer?.cancel();
+                    Navigator.of(ctx).pop();
+                    if (mounted) setState(() => _loading = false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final code = otpControllers.map((c) => c.text.trim()).join();
+                    if (code.length != 6) {
+                      showDialog(
+                        context: ctx,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Invalid code'),
+                          content: const Text('Please enter the full 6-digit code.'),
+                          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+                        ),
+                      );
+                      return;
+                    }
+                    _smsController.text = code;
+                    dialogTimer?.cancel();
+                    Navigator.of(ctx).pop();
+                    _verifySmsCodeAndSignup();
+                  },
+                  child: const Text('Verify'),
+                ),
+              ],
+            ),
+          );
+        });
+      },
     );
   }
 
@@ -215,10 +323,13 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             keyboardType: TextInputType.phone,
                             onChanged: (val) => _phone = val.trim(),
-                            validator: (val) =>
-                                val != null && val.trim().isNotEmpty && val.length >= 8
-                                    ? null
-                                    : loc.noTransactions,
+                            validator: (val) {
+                              if (val == null) return loc.noTransactions;
+                              final digits = val.trim();
+                              final phoneReg = RegExp(r'^[0-9]{6,14}$');
+                              if (!phoneReg.hasMatch(digits)) return loc.noTransactions;
+                              return null;
+                            },
                           ),
                         ),
                       ],
